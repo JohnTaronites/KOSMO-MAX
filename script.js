@@ -37,7 +37,6 @@ window.addEventListener('load', function() {
     superShotBtn.style.borderRadius = '5px';
     superShotBtn.style.cursor = 'pointer';
 
-    // --- ZMIANA: Solidniejsze tworzenie ekranu Game Over ---
     const gameOverScreen = document.createElement('div');
     gameOverScreen.style.position = 'absolute';
     gameOverScreen.style.width = '100%';
@@ -47,6 +46,8 @@ window.addEventListener('load', function() {
     gameOverScreen.style.justifyContent = 'center';
     gameOverScreen.style.alignItems = 'center';
     gameOverScreen.style.backgroundColor = 'rgba(0,0,0,0.75)';
+    // ZMIANA 1: Dodano wyrównanie tekstu do środka dla pewności
+    gameOverScreen.style.textAlign = 'center';
     
     const gameOverTitle = document.createElement('h1');
     gameOverTitle.innerText = 'GAME OVER';
@@ -71,13 +72,11 @@ window.addEventListener('load', function() {
     newGameBtn.style.border = 'none';
     newGameBtn.style.borderRadius = '5px';
     
-    // Kluczowe: Dodanie listenera do właściwego obiektu
     newGameBtn.addEventListener('click', resetGame);
 
     gameOverScreen.appendChild(gameOverTitle);
     gameOverScreen.appendChild(finalScoreText);
     gameOverScreen.appendChild(newGameBtn);
-    // --- KONIEC ZMIANY ---
 
     gameContainer.appendChild(uiContainer);
     gameContainer.appendChild(superShotBtn);
@@ -226,12 +225,24 @@ window.addEventListener('load', function() {
         return (rect1.x < rect2.x + rect2.width && rect1.x + rect1.width > rect2.x &&
                 rect1.y < rect2.y + rect2.height && rect1.y + rect1.height > rect2.y);
     }
+
+    // ZMIANA 2: Ulepszona logika dźwięków końca gry
     function checkGameState() {
         if (missedEnemies >= 3) {
-            lives--; missedEnemies = 0; lifeLostSound.play();
+            lives--;
+            missedEnemies = 0;
+            
+            // Odtwórz dźwięk utraty życia tylko, jeśli graczowi jeszcze jakieś zostały
+            if (lives > 0) {
+                lifeLostSound.play();
+            }
         }
-        if (lives <= 0 && !gameOver) { gameOver = true; }
+        // Ustaw flagę końca gry, jeśli życia się skończyły
+        if (lives <= 0 && !gameOver) {
+            gameOver = true;
+        }
     }
+    
     function updateUI() {
         scoreEl.innerHTML = `WYNIK: ${score}`;
         livesEl.innerHTML = `ŻYCIA: ${lives}`;
@@ -247,6 +258,8 @@ window.addEventListener('load', function() {
 
         if (gameOver) {
             if (gameOverScreen.style.display !== 'flex') {
+                // Ta sekcja wykonuje się tylko raz na koniec gry
+                // i odtwarza TYLKO dźwięk "Game Over"
                 gameOverSound.play();
                 setTimeout(() => {
                     gameOverScreen.style.display = 'flex';
@@ -261,7 +274,7 @@ window.addEventListener('load', function() {
         if (cooldownInterval) clearInterval(cooldownInterval);
         score = 0; lives = 3; missedEnemies = 0; gameOver = false;
         bullets = []; enemies = []; enemyTimer = 0;
-        gameOverScreen.style.display = 'none'; // Ukryj ekran Game Over
+        gameOverScreen.style.display = 'none';
         resizeGame();
         player = new Player();
         input.x = canvas.width / 2;
