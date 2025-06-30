@@ -31,7 +31,7 @@ window.addEventListener('load', function() {
     startScreen.innerHTML = '<h1>KOSMICZNA STRZELANKA</h1><p style="margin-top: 20px;">Kliknij lub dotknij ekranu, aby rozpocząć!</p>';
     gameContainer.appendChild(uiContainer); gameContainer.appendChild(superShotBtn); gameContainer.appendChild(gameOverScreen); gameContainer.appendChild(startScreen);
 
-    // --- ZASOBY GRY z Web Audio API ---
+    // --- ZASOBY GRY ---
     const shipImage = new Image();
     let audioContext;
     let soundBuffers = {}; 
@@ -45,7 +45,7 @@ window.addEventListener('load', function() {
         source.start(0);
     }
     
-    // ... reszta zmiennych i klas gry (bez zmian) ...
+    // --- reszta zmiennych, klas i logiki gry (bez zmian) ---
     let score, lives, missedEnemies, gameOver;
     let player, bullets, enemies;
     let enemyTimer, enemyInterval = 1000;
@@ -73,22 +73,16 @@ window.addEventListener('load', function() {
     function animate(timestamp) { if (!lastTime) lastTime = timestamp; const deltaTime = (timestamp - lastTime) / 1000; lastTime = timestamp; ctx.clearRect(0, 0, canvas.width, canvas.height); player.update(input.x); player.draw(ctx); handleGameElements(deltaTime); checkGameState(); updateUI(); if (gameOver) { if (gameOverScreen.style.display !== 'flex') { playSound('gameOver'); setTimeout(() => { gameOverScreen.style.display = 'flex'; finalScoreEl.innerText = score; clearInterval(cooldownInterval); }, 500); } } else { animationFrameId = requestAnimationFrame(animate); } }
     function resetGame() { if (animationFrameId) cancelAnimationFrame(animationFrameId); if (cooldownInterval) clearInterval(cooldownInterval); score = 0; lives = 3; missedEnemies = 0; gameOver = false; bullets = []; enemies = []; enemyTimer = 0; gameOverScreen.style.display = 'none'; resizeGame(); player = new Player(); input.x = canvas.width / 2; startSuperShotCooldown(5000); lastTime = 0; animate(0); }
 
-    // --- ZMIANA: Czysta logika startowa dla Web Audio API ---
     function unlockAudioAndStartGame() {
         startScreen.removeEventListener('click', unlockAudioAndStartGame);
         startScreen.removeEventListener('touchstart', unlockAudioAndStartGame);
-        
-        startScreen.innerHTML = '<h1>ŁADOWANIE...</h1>';
-        startScreen.style.cursor = 'default';
-
         if (!audioContext) {
             audioContext = new (window.AudioContext || window.webkitAudioContext)();
         }
-
-        // Używamy .then() dla maksymalnej kompatybilności.
-        // Ta funkcja jest wywoływana, gdy kontekst jest gotowy.
         audioContext.resume().then(() => {
             console.log("AudioContext jest w stanie 'running'. Rozpoczynanie ładowania dźwięków.");
+            startScreen.innerHTML = '<h1>ŁADOWANIE DŹWIĘKÓW...</h1>';
+            startScreen.style.cursor = 'default';
 
             const soundUrls = {
                 shoot: 'assets/laser_shoot.wav',
@@ -96,20 +90,14 @@ window.addEventListener('load', function() {
                 gameOver: 'assets/Ohnoo.wav',
                 superShot: 'assets/bigbomb.wav'
             };
-
             const loadPromises = Object.entries(soundUrls).map(([name, url]) =>
                 fetch(url)
                     .then(response => response.arrayBuffer())
                     .then(arrayBuffer => audioContext.decodeAudioData(arrayBuffer))
-                    .then(audioBuffer => {
-                        soundBuffers[name] = audioBuffer;
-                    })
+                    .then(audioBuffer => { soundBuffers[name] = audioBuffer; })
             );
-
             return Promise.all(loadPromises);
-
         }).then(() => {
-            console.log('Wszystkie dźwięki załadowane.');
             startScreen.style.display = 'none';
             resetGame();
         }).catch(error => {
@@ -124,13 +112,21 @@ window.addEventListener('load', function() {
         ctx.textAlign = 'center'; ctx.fillText('ŁADOWANIE GRAFIKI...', canvas.width / 2, canvas.height / 2);
     }
     
-    showInitialLoading();
-    
-    shipImage.onload = () => {
+    // --- ZMIANA: Logika startowa z zabezpieczeniem ---
+    function onAssetsLoaded() {
         startScreen.addEventListener('click', unlockAudioAndStartGame);
         startScreen.addEventListener('touchstart', unlockAudioAndStartGame);
-    };
-    shipImage.onerror = () => alert("BŁĄD: Nie można załadować grafiki.");
+    }
+
+    showInitialLoading();
     
+    shipImage.onload = onAssetsLoaded;
+    shipImage.onerror = () => alert("BŁĄD: Nie można załadować grafiki. Upewnij się, że plik ship.png jest w folderze 'assets'.");
     shipImage.src = 'assets/ship.png';
+
+    // Dodatkowe zabezpieczenie: jeśli obrazek jest już w cache, uruchom funkcję ręcznie
+    if (shipImage.complete) {
+        onAssetsLoaded();
+    }
+    // --- KONIEC ZMIANY ---
 });
