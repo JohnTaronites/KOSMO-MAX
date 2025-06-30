@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kosmiczna Strzelanka</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="game-container">
+        <canvas id="gameCanvas"></canvas>
+        
+        <div id="ui">
+            <div id="score-container">WYNIK: <span id="score">0</span></div>
+            <div id="lives-container">ŻYCIA: <span id="lives">3</span></div>
+        </div>
+
+        <button id="superShotBtn">SUPER STRZAŁ</button>
+
+        <div id="gameOverScreen">
+            <h1>GAME OVER</h1>
+            <p>Twój wynik: <span id="finalScore">0</span></p>
+            <button id="newGameBtn">NOWA GRA</button>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
