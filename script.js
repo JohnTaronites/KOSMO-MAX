@@ -31,7 +31,7 @@ window.addEventListener('load', function() {
     startScreen.innerHTML = '<h1>KOSMICZNA STRZELANKA</h1><p style="margin-top: 20px;">Kliknij lub dotknij ekranu, aby rozpocząć!</p>';
     gameContainer.appendChild(uiContainer); gameContainer.appendChild(superShotBtn); gameContainer.appendChild(gameOverScreen); gameContainer.appendChild(startScreen);
 
-    // --- ZASOBY GRY Z WEB AUDIO API ---
+    // --- ZASOBY GRY z Web Audio API ---
     const shipImage = new Image();
     let audioContext;
     let soundBuffers = {}; 
@@ -73,54 +73,48 @@ window.addEventListener('load', function() {
     function animate(timestamp) { if (!lastTime) lastTime = timestamp; const deltaTime = (timestamp - lastTime) / 1000; lastTime = timestamp; ctx.clearRect(0, 0, canvas.width, canvas.height); player.update(input.x); player.draw(ctx); handleGameElements(deltaTime); checkGameState(); updateUI(); if (gameOver) { if (gameOverScreen.style.display !== 'flex') { playSound('gameOver'); setTimeout(() => { gameOverScreen.style.display = 'flex'; finalScoreEl.innerText = score; clearInterval(cooldownInterval); }, 500); } } else { animationFrameId = requestAnimationFrame(animate); } }
     function resetGame() { if (animationFrameId) cancelAnimationFrame(animationFrameId); if (cooldownInterval) clearInterval(cooldownInterval); score = 0; lives = 3; missedEnemies = 0; gameOver = false; bullets = []; enemies = []; enemyTimer = 0; gameOverScreen.style.display = 'none'; resizeGame(); player = new Player(); input.x = canvas.width / 2; startSuperShotCooldown(5000); lastTime = 0; animate(0); }
 
-    // --- ZMIANA: OSTATECZNA LOGIKA STARTOWA (PODEJŚCIE HYBRYDOWE) ---
-    async function unlockAudioAndStartGame() {
+    // --- ZMIANA: Czysta logika startowa dla Web Audio API ---
+    function unlockAudioAndStartGame() {
         startScreen.removeEventListener('click', unlockAudioAndStartGame);
         startScreen.removeEventListener('touchstart', unlockAudioAndStartGame);
         
-        // --- KROK 1: Inicjalizacja Web Audio API ---
+        startScreen.innerHTML = '<h1>ŁADOWANIE...</h1>';
+        startScreen.style.cursor = 'default';
+
         if (!audioContext) {
             audioContext = new (window.AudioContext || window.webkitAudioContext)();
         }
-        if (audioContext.state === 'suspended') {
-            await audioContext.resume();
-        }
-        
-        // --- KROK 2: Dodatkowa sztuczka z <audio> dla pewności ---
-        // Tworzymy jeden, cichy element audio i próbujemy go odtworzyć.
-        // To dodatkowo sygnalizuje przeglądarce, że użytkownik chce dźwięku.
-        const unlockAudio = new Audio('data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA');
-        unlockAudio.volume = 0;
-        unlockAudio.play().catch(() => {}); // Odtwórz i zignoruj ewentualne błędy
 
-        // --- KROK 3: Ładowanie właściwych dźwięków ---
-        startScreen.innerHTML = '<h1>ŁADOWANIE DŹWIĘKÓW...</h1>';
-        startScreen.style.cursor = 'default';
+        // Używamy .then() dla maksymalnej kompatybilności.
+        // Ta funkcja jest wywoływana, gdy kontekst jest gotowy.
+        audioContext.resume().then(() => {
+            console.log("AudioContext jest w stanie 'running'. Rozpoczynanie ładowania dźwięków.");
 
-        const soundUrls = {
-            shoot: 'assets/laser_shoot.wav',
-            lifeLost: 'assets/craaash.wav',
-            gameOver: 'assets/Ohnoo.wav',
-            superShot: 'assets/bigbomb.wav'
-        };
+            const soundUrls = {
+                shoot: 'assets/laser_shoot.wav',
+                lifeLost: 'assets/craaash.wav',
+                gameOver: 'assets/Ohnoo.wav',
+                superShot: 'assets/bigbomb.wav'
+            };
 
-        const loadPromises = Object.entries(soundUrls).map(async ([name, url]) => {
-            try {
-                const response = await fetch(url);
-                const arrayBuffer = await response.arrayBuffer();
-                const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
-                soundBuffers[name] = audioBuffer;
-            } catch (error) {
-                console.error(`Błąd ładowania dźwięku ${name}:`, error);
-                throw new Error(`Nie udało się załadować ${name}`);
-            }
-        });
+            const loadPromises = Object.entries(soundUrls).map(([name, url]) =>
+                fetch(url)
+                    .then(response => response.arrayBuffer())
+                    .then(arrayBuffer => audioContext.decodeAudioData(arrayBuffer))
+                    .then(audioBuffer => {
+                        soundBuffers[name] = audioBuffer;
+                    })
+            );
 
-        Promise.all(loadPromises).then(() => {
+            return Promise.all(loadPromises);
+
+        }).then(() => {
+            console.log('Wszystkie dźwięki załadowane.');
             startScreen.style.display = 'none';
             resetGame();
         }).catch(error => {
-            startScreen.innerHTML = '<h1>Błąd ładowania dźwięku.</h1><p>Upewnij się, że pliki znajdują się w folderze "assets".</p>';
+            console.error("Błąd podczas inicjalizacji audio:", error);
+            startScreen.innerHTML = '<h1>Błąd audio</h1><p>Spróbuj odświeżyć stronę lub użyć innej przeglądarki.</p>';
         });
     }
 
