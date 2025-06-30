@@ -27,16 +27,25 @@ window.addEventListener('load', function() {
     newGameBtn.addEventListener('click', resetGame);
     gameOverScreen.appendChild(gameOverTitle); gameOverScreen.appendChild(finalScoreText); gameOverScreen.appendChild(newGameBtn);
     const startScreen = document.createElement('div');
-    startScreen.style.position = 'absolute'; startScreen.style.width = '100%'; startScreen.style.height = '100%'; startScreen.style.display = 'none'; // Zaczyna ukryty
-    startScreen.style.flexDirection = 'column'; startScreen.style.justifyContent = 'center'; startScreen.style.alignItems = 'center'; startScreen.style.backgroundColor = 'rgba(0,0,0,0.85)'; startScreen.style.color = 'white'; startScreen.style.fontFamily = 'Segoe UI, Tahoma, sans-serif'; startScreen.style.fontSize = '24px'; startScreen.style.textAlign = 'center'; startScreen.style.cursor = 'pointer';
+    startScreen.style.position = 'absolute'; startScreen.style.width = '100%'; startScreen.style.height = '100%'; startScreen.style.display = 'flex'; startScreen.style.flexDirection = 'column'; startScreen.style.justifyContent = 'center'; startScreen.style.alignItems = 'center'; startScreen.style.backgroundColor = 'rgba(0,0,0,0.85)'; startScreen.style.color = 'white'; startScreen.style.fontFamily = 'Segoe UI, Tahoma, sans-serif'; startScreen.style.fontSize = '24px'; startScreen.style.textAlign = 'center'; startScreen.style.cursor = 'pointer';
     startScreen.innerHTML = '<h1>KOSMICZNA STRZELANKA</h1><p style="margin-top: 20px;">Kliknij lub dotknij ekranu, aby rozpocząć!</p>';
     gameContainer.appendChild(uiContainer); gameContainer.appendChild(superShotBtn); gameContainer.appendChild(gameOverScreen); gameContainer.appendChild(startScreen);
 
-    // --- ZASOBY GRY i reszta kodu (bez zmian) ---
+    // --- ZASOBY GRY z Web Audio API ---
     const shipImage = new Image();
     let audioContext;
     let soundBuffers = {}; 
-    function playSound(name) { const buffer = soundBuffers[name]; if (!audioContext || !buffer || audioContext.state !== 'running') return; const source = audioContext.createBufferSource(); source.buffer = buffer; source.connect(audioContext.destination); source.start(0); }
+
+    function playSound(name) {
+        const buffer = soundBuffers[name];
+        if (!audioContext || !buffer || audioContext.state !== 'running') return;
+        const source = audioContext.createBufferSource();
+        source.buffer = buffer;
+        source.connect(audioContext.destination);
+        source.start(0);
+    }
+    
+    // --- reszta zmiennych, klas i logiki gry (bez zmian) ---
     let score, lives, missedEnemies, gameOver;
     let player, bullets, enemies;
     let enemyTimer, enemyInterval = 1000;
@@ -63,47 +72,69 @@ window.addEventListener('load', function() {
     function updateUI() { scoreEl.innerHTML = `WYNIK: ${score}`; livesEl.innerHTML = `ŻYCIA: ${lives}`; }
     function animate(timestamp) { if (!lastTime) lastTime = timestamp; const deltaTime = (timestamp - lastTime) / 1000; lastTime = timestamp; ctx.clearRect(0, 0, canvas.width, canvas.height); player.update(input.x); player.draw(ctx); handleGameElements(deltaTime); checkGameState(); updateUI(); if (gameOver) { if (gameOverScreen.style.display !== 'flex') { playSound('gameOver'); setTimeout(() => { gameOverScreen.style.display = 'flex'; finalScoreEl.innerText = score; clearInterval(cooldownInterval); }, 500); } } else { animationFrameId = requestAnimationFrame(animate); } }
     function resetGame() { if (animationFrameId) cancelAnimationFrame(animationFrameId); if (cooldownInterval) clearInterval(cooldownInterval); score = 0; lives = 3; missedEnemies = 0; gameOver = false; bullets = []; enemies = []; enemyTimer = 0; gameOverScreen.style.display = 'none'; resizeGame(); player = new Player(); input.x = canvas.width / 2; startSuperShotCooldown(5000); lastTime = 0; animate(0); }
-    
-    // --- ZMIANA: NOWA, BARDZIEJ NIEZAWODNA LOGIKA STARTOWA ---
-    function unlockAudioAndStartGame() {
-        // Krok 1: Natychmiast usuń listenery, aby ta funkcja wykonała się tylko raz.
-        window.removeEventListener('click', unlockAudioAndStartGame);
-        window.removeEventListener('touchstart', unlockAudioAndStartGame);
-        
-        startScreen.innerHTML = '<h1>ŁADOWANIE...</h1>';
-        startScreen.style.cursor = 'default';
 
+    // --- ZMIANA: Logika startowa oparta o Twoją wskazówkę ---
+    function unlockAudioAndStartGame() {
+        startScreen.removeEventListener('click', unlockAudioAndStartGame);
+        startScreen.removeEventListener('touchstart', unlockAudioAndStartGame);
+        
         if (!audioContext) {
             audioContext = new (window.AudioContext || window.webkitAudioContext)();
         }
 
-        audioContext.resume().then(() => {
-            const soundUrls = {
-                shoot: 'assets/laser_shoot.wav',
-                lifeLost: 'assets/craaash.wav',
-                gameOver: 'assets/Ohnoo.wav',
-                superShot: 'assets/bigbomb.wav'
+        // Jeśli kontekst jest "uśpiony", próbujemy go obudzić.
+        // Ta operacja musi być wewnątrz eventu kliknięcia.
+        if (audioContext.state === 'suspended') {
+            audioContext.resume();
+        }
+        
+        startScreen.innerHTML = '<h1>ŁADOWANIE...</h1>';
+        startScreen.style.cursor = 'default';
+
+        const soundUrls = {
+            shoot: 'assets/laser_shoot.wav',
+            lifeLost: 'assets/craaash.wav',
+            gameOver: 'assets/Ohnoo.wav',
+            superShot: 'assets/bigbomb.wav'
+        };
+        
+        let soundsLoaded = 0;
+        const totalSounds = Object.keys(soundUrls).length;
+
+        // Używamy starszej składni `decodeAudioData` z callbackami
+        Object.entries(soundUrls).forEach(([name, url]) => {
+            const request = new XMLHttpRequest();
+            request.open('GET', url, true);
+            request.responseType = 'arraybuffer';
+
+            request.onload = () => {
+                audioContext.decodeAudioData(request.response, 
+                    (buffer) => { // Callback sukcesu
+                        soundBuffers[name] = buffer;
+                        soundsLoaded++;
+                        if (soundsLoaded >= totalSounds) {
+                            // Gdy wszystkie dźwięki są gotowe, uruchom grę
+                            console.log('Wszystkie dźwięki załadowane.');
+                            startScreen.style.display = 'none';
+                            resetGame();
+                        }
+                    },
+                    (error) => { // Callback błędu
+                        console.error(`Błąd dekodowania dźwięku ${name}:`, error);
+                    }
+                );
             };
-            const loadPromises = Object.entries(soundUrls).map(([name, url]) =>
-                fetch(url)
-                    .then(response => response.arrayBuffer())
-                    .then(arrayBuffer => audioContext.decodeAudioData(arrayBuffer))
-                    .then(audioBuffer => { soundBuffers[name] = audioBuffer; })
-            );
-            return Promise.all(loadPromises);
-        }).then(() => {
-            startScreen.style.display = 'none';
-            resetGame();
-        }).catch(error => {
-            console.error("Błąd podczas inicjalizacji audio:", error);
-            startScreen.innerHTML = '<h1>Błąd audio</h1><p>Spróbuj odświeżyć stronę.</p>';
+            
+            request.onerror = () => {
+                console.error(`Błąd pobierania pliku dźwiękowego: ${url}`);
+            };
+
+            request.send();
         });
     }
 
     function onImageLoaded() {
-        console.log("Grafika załadowana. Pokazywanie ekranu startowego.");
         startScreen.style.display = 'flex';
-        // Nasłuchuj na całym oknie, a nie na samym ekranie startowym
         window.addEventListener('click', unlockAudioAndStartGame);
         window.addEventListener('touchstart', unlockAudioAndStartGame);
     }
@@ -123,5 +154,4 @@ window.addEventListener('load', function() {
     if (shipImage.complete) {
         onImageLoaded();
     }
-    // --- KONIEC ZMIANY ---
 });
