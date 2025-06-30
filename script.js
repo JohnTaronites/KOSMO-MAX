@@ -5,7 +5,7 @@ window.addEventListener('load', function() {
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
 
-    // --- UI ---
+    // --- UI (bez zmian) ---
     const gameContainer = document.body;
     const uiContainer = document.createElement('div');
     uiContainer.style.position = 'absolute';
@@ -132,7 +132,6 @@ window.addEventListener('load', function() {
     function updateSuperShotUI() { superShotBtn.innerText = `SUPER STRZAŁ (${superShotCharges})`; superShotBtn.disabled = superShotCharges <= 0; }
     function shootTriple() { playSound('shoot'); const bulletX = player.x + player.width / 2 - 2.5; if (currentLevel < 3) { setTimeout(() => { if (!gameOver) bullets.push(new Bullet(bulletX, player.y)) }, 0); setTimeout(() => { if (!gameOver) bullets.push(new Bullet(bulletX, player.y)) }, 100); setTimeout(() => { if (!gameOver) bullets.push(new Bullet(bulletX, player.y)) }, 200); } else { const spreadAngle = 0.15; bullets.push(new Bullet(bulletX, player.y, 'white', 500, 0)); bullets.push(new Bullet(bulletX, player.y, 'white', 500, -spreadAngle)); bullets.push(new Bullet(bulletX, player.y, 'white', 500, spreadAngle)); } }
     function shootSuper() { playSound('superShot'); superShotCharges--; updateSuperShotUI(); const bulletCount = 30; for (let i = 0; i < bulletCount; i++) { const angle = (Math.PI * 2 / bulletCount) * i; bullets.push(new Bullet(player.x + player.width / 2, player.y + player.height / 2, 'red', 300, angle)); } }
-    
     function handleGameElements(deltaTime) {
         const currentEnemyInterval = baseEnemyInterval / enemySpawnMultiplier;
         if (enemySpawnTimer > currentEnemyInterval) {
@@ -157,7 +156,6 @@ window.addEventListener('load', function() {
         bullets.forEach(bullet => bullet.draw(ctx));
         enemies.forEach(enemy => enemy.draw(ctx));
     }
-
     function checkCollision(rect1, rect2) { return (rect1.x < rect2.x + rect2.width && rect1.x + rect1.width > rect2.x && rect1.y < rect2.y + rect2.height && rect1.y + rect1.height > rect2.y); }
     function checkGameState() { if (missedEnemies >= 3) { lives--; missedEnemies = 0; if (lives > 0) { playSound('lifeLost'); } } if (lives <= 0 && !gameOver) { gameOver = true; } }
     
@@ -175,34 +173,55 @@ window.addEventListener('load', function() {
         gameContainer.appendChild(levelUpEl);
         setTimeout(() => { levelUpEl.style.opacity = '0'; setTimeout(() => { gameContainer.removeChild(levelUpEl); }, 1000); }, 1500);
     }
+
     function levelUp(newLevel) {
         currentLevel = newLevel;
         showLevelUpMessage(currentLevel);
-        enemySpeedMultiplier *= 1.1;
-        enemySpawnMultiplier *= 1.1;
+        // ZMIANA: Zwiększenie trudności o 20%
+        enemySpeedMultiplier *= 1.2;
+        enemySpawnMultiplier *= 1.2;
         if (currentLevel === 3) { maxSuperShotCharges = 3; }
         superShotCharges = maxSuperShotCharges;
     }
+
     function checkLevelUp() {
-        if (currentLevel === 1 && score >= 500) { levelUp(2); }
-        else if (currentLevel === 2 && score >= 2000) { levelUp(3); }
+        // ZMIANA: Nowe progi punktowe
+        if (currentLevel === 1 && score >= 200) {
+            levelUp(2);
+        } else if (currentLevel === 2 && score >= 500) {
+            levelUp(3);
+        }
     }
+
     function animate(timestamp) {
         if (!lastTime) lastTime = timestamp;
         const deltaTime = (timestamp - lastTime) / 1000;
         lastTime = timestamp;
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         
-        player.update(input.x); 
-        player.draw(ctx);
+        if (player) {
+            player.update(input.x); 
+            player.draw(ctx);
+        }
+        
         handleGameElements(deltaTime);
         checkGameState();
         updateUI();
         checkLevelUp();
 
-        if (gameOver) { if (gameOverScreen.style.display !== 'flex') { playSound('gameOver'); setTimeout(() => { gameOverScreen.style.display = 'flex'; finalScoreEl.innerText = score; }, 500); } }
-        else { animationFrameId = requestAnimationFrame(animate); }
+        if (gameOver) { 
+            if (gameOverScreen.style.display !== 'flex') { 
+                playSound('gameOver'); 
+                setTimeout(() => { 
+                    gameOverScreen.style.display = 'flex'; 
+                    finalScoreEl.innerText = score; 
+                }, 500); 
+            } 
+        } else { 
+            animationFrameId = requestAnimationFrame(animate); 
+        }
     }
+
     function resetGame() {
         if (animationFrameId) cancelAnimationFrame(animationFrameId);
         score = 0; lives = 3; missedEnemies = 0; gameOver = false;
@@ -225,7 +244,6 @@ window.addEventListener('load', function() {
         window.removeEventListener('touchstart', unlockAudioAndStartGame);
         startScreen.innerHTML = '<h1>ŁADOWANIE...</h1>';
         startScreen.style.cursor = 'default';
-
         if (!audioContext) {
             audioContext = new (window.AudioContext || window.webkitAudioContext)();
         }
@@ -239,15 +257,12 @@ window.addEventListener('load', function() {
                 console.warn("Nie udało się ustawić typu sesji audio:", error);
             }
         }
-        
-        // ZMIANA: Poprawiona ścieżka do pliku
         const soundUrls = {
             shoot: 'assets/laser_shoot.wav',
             lifeLost: 'assets/craaash.wav',
             gameOver: 'assets/Ohnoo.wav',
-            superShot: 'assets/bigbomb.wav' 
+            superShot: 'assets/bigbomb.wav'
         };
-
         const loadPromises = Object.entries(soundUrls).map(async ([name, url]) => {
             try {
                 const response = await fetch(url);
@@ -259,7 +274,6 @@ window.addEventListener('load', function() {
                 throw new Error(`Nie udało się załadować ${name}`);
             }
         });
-
         try {
             await Promise.all(loadPromises);
             startScreen.style.display = 'none';
@@ -268,25 +282,20 @@ window.addEventListener('load', function() {
             startScreen.innerHTML = '<h1>Błąd ładowania dźwięku.</h1><p>Upewnij się, że pliki znajdują się w folderze "assets".</p>';
         }
     }
-
     function onImageLoaded() {
         startScreen.style.display = 'flex';
         window.addEventListener('click', unlockAudioAndStartGame);
         window.addEventListener('touchstart', unlockAudioAndStartGame);
     }
-    
     function showInitialLoading() {
         ctx.fillStyle = 'black'; ctx.fillRect(0, 0, canvas.width, canvas.height);
         ctx.fillStyle = 'white'; ctx.font = "30px 'Segoe UI'";
         ctx.textAlign = 'center'; ctx.fillText('ŁADOWANIE GRAFIKI...', canvas.width / 2, canvas.height / 2);
     }
-    
     showInitialLoading();
-    
     shipImage.onload = onImageLoaded;
     shipImage.onerror = () => alert("BŁĄD: Nie można załadować grafiki.");
     shipImage.src = 'assets/ship.png';
-
     if (shipImage.complete) {
         onImageLoaded();
     }
