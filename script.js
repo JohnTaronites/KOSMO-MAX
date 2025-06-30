@@ -1,28 +1,4 @@
 window.addEventListener('load', function() {
-    // --- logger na ekranie ---
-    const debugLogElement = document.createElement('div');
-    debugLogElement.style.position = 'absolute';
-    debugLogElement.style.top = '0';
-    debugLogElement.style.left = '0';
-    debugLogElement.style.width = '100%';
-    debugLogElement.style.minHeight = '40px';
-    debugLogElement.style.background = 'rgba(255, 255, 255, 0.9)';
-    debugLogElement.style.color = 'black';
-    debugLogElement.style.padding = '5px';
-    debugLogElement.style.fontFamily = 'monospace';
-    debugLogElement.style.fontSize = '12px';
-    debugLogElement.style.zIndex = '1000';
-    debugLogElement.style.wordBreak = 'break-all';
-    document.body.appendChild(debugLogElement);
-
-    function debugLog(message) {
-        console.log(message);
-        debugLogElement.innerHTML += message + '<br>';
-    }
-
-    debugLog('--- START DIAGNOSTYKI ---');
-    debugLog('Event "load" okna został wywołany.');
-
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
     
@@ -38,7 +14,7 @@ window.addEventListener('load', function() {
     uiContainer.style.width = '100%';
     uiContainer.style.display = 'flex';
     uiContainer.style.justifyContent = 'space-between';
-    uiContainer.style.padding = '45px 20px 10px 20px'; // Zwiększony padding, by nie nachodził na logi
+    uiContainer.style.padding = '10px 20px';
     uiContainer.style.color = 'white';
     uiContainer.style.fontFamily = 'Segoe UI, Tahoma, sans-serif';
     uiContainer.style.fontSize = '20px';
@@ -166,57 +142,59 @@ window.addEventListener('load', function() {
     function animate(timestamp) { if (!lastTime) lastTime = timestamp; const deltaTime = (timestamp - lastTime) / 1000; lastTime = timestamp; ctx.clearRect(0, 0, canvas.width, canvas.height); if (player) { player.update(input.x); player.draw(ctx); } handleGameElements(deltaTime); checkGameState(); updateUI(); checkLevelUp(); if (gameOver) { if (gameOverScreen.style.display !== 'flex') { playSound('gameOver'); setTimeout(() => { gameOverScreen.style.display = 'flex'; finalScoreEl.innerText = score; }, 500); } } else { animationFrameId = requestAnimationFrame(animate); } }
     function resetGame() { if (animationFrameId) cancelAnimationFrame(animationFrameId); score = 0; lives = 3; missedEnemies = 0; gameOver = false; bullets = []; enemies = []; currentLevel = 1; enemyBaseSpeed = 100; enemySpeedMultiplier = 1.0; baseEnemyInterval = 1000; enemySpawnMultiplier = 1.0; enemySpawnTimer = 0; maxSuperShotCharges = 2; superShotCharges = maxSuperShotCharges; gameOverScreen.style.display = 'none'; resizeGame(); player = new Player(); input.x = canvas.width / 2; lastTime = 0; updateUI(); animate(0); }
 
-    // --- LOGIKA STARTOWA Z DIAGNOSTYKĄ ---
-    async function unlockAudioAndStartGame() {
-        debugLog('Akcja użytkownika wykryta (unlockAudioAndStartGame).');
+    // --- ZMIANA: Czysta logika startowa dla Web Audio API z .then() ---
+    function unlockAudioAndStartGame() {
         window.removeEventListener('click', unlockAudioAndStartGame);
         window.removeEventListener('touchstart', unlockAudioAndStartGame);
         
         startScreen.innerHTML = '<h1>ŁADOWANIE...</h1>';
         startScreen.style.cursor = 'default';
 
-        try {
-            if (!audioContext) {
-                audioContext = new (window.AudioContext || window.webkitAudioContext)();
-            }
-            debugLog('AudioContext istnieje. Stan: ' + audioContext.state);
+        if (!audioContext) {
+            audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        }
 
-            if (audioContext.state === 'suspended') {
-                await audioContext.resume();
-                debugLog('Kontekst wznowiony. Nowy stan: ' + audioContext.state);
-            }
-            
+        // Używamy .then() dla maksymalnej kompatybilności.
+        // Ta funkcja jest wywoływana, gdy kontekst jest gotowy.
+        audioContext.resume().then(() => {
+            console.log("AudioContext jest w stanie 'running'. Rozpoczynanie ładowania dźwięków.");
+
             const soundUrls = {
                 shoot: 'assets/laser_shoot.wav',
                 lifeLost: 'assets/craaash.wav',
                 gameOver: 'assets/Ohnoo.wav',
                 superShot: 'assets/bigbomb.wav'
             };
-            
-            // Sekwencyjne ładowanie dla lepszej diagnostyki
-            for (const [name, url] of Object.entries(soundUrls)) {
-                debugLog(`Ładuję: ${name}...`);
-                const response = await fetch(url);
-                if (!response.ok) throw new Error(`HTTP error! Status: ${response.status} dla ${url}`);
-                const arrayBuffer = await response.arrayBuffer();
-                const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
-                soundBuffers[name] = audioBuffer;
-                debugLog(`OK: ${name} załadowany.`);
-            }
 
-            debugLog('--- SUKCES! Wszystkie dźwięki załadowane. ---');
+            const loadPromises = Object.entries(soundUrls).map(([name, url]) => {
+                return fetch(url)
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error(`HTTP error! status: ${response.status} for ${url}`);
+                        }
+                        return response.arrayBuffer();
+                    })
+                    .then(arrayBuffer => audioContext.decodeAudioData(arrayBuffer))
+                    .then(audioBuffer => {
+                        soundBuffers[name] = audioBuffer;
+                    });
+            });
+
+            return Promise.all(loadPromises);
+
+        }).then(() => {
+            // Ten blok wykona się, gdy wszystkie dźwięki zostaną pomyślnie załadowane
+            console.log('Wszystkie dźwięki załadowane.');
             startScreen.style.display = 'none';
-            debugLogElement.style.display = 'none'; // Ukryj logi po udanym starcie
             resetGame();
-
-        } catch (error) {
-            debugLog(`BŁĄD KRYTYCZNY w unlockAudioAndStartGame: ${error}`);
-            startScreen.innerHTML = '<h1>Błąd audio.</h1>';
-        }
+        }).catch(error => {
+            // Ten blok wykona się, jeśli którykolwiek krok po drodze zawiedzie
+            console.error("Błąd podczas inicjalizacji audio:", error);
+            startScreen.innerHTML = '<h1>Błąd audio</h1><p>Spróbuj odświeżyć stronę.</p>';
+        });
     }
 
     function onImageLoaded() {
-        debugLog('Grafika załadowana. Pokazuję ekran startowy.');
         startScreen.style.display = 'flex';
         window.addEventListener('click', unlockAudioAndStartGame);
         window.addEventListener('touchstart', unlockAudioAndStartGame);
@@ -231,14 +209,10 @@ window.addEventListener('load', function() {
     showInitialLoading();
     
     shipImage.onload = onImageLoaded;
-    shipImage.onerror = () => {
-        debugLog("BŁĄD KRYTYCZNY: shipImage.onerror");
-        alert("BŁĄD: Nie można załadować grafiki.");
-    };
+    shipImage.onerror = () => alert("BŁĄD: Nie można załadować grafiki.");
     shipImage.src = 'assets/ship.png';
 
     if (shipImage.complete) {
-        debugLog('Grafika była już w cache. Uruchamiam onImageLoaded() ręcznie.');
         onImageLoaded();
     }
 });
