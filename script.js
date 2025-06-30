@@ -35,9 +35,10 @@ window.addEventListener('load', function() {
     const shipImage = new Image();
     
     let audioContext;
-    let shootSoundBuffer, lifeLostSoundBuffer, gameOverSoundBuffer, superShotSoundBuffer;
+    let soundBuffers = {}; // Użyjemy obiektu do przechowywania buforów dźwięku
 
-    function playSound(buffer) {
+    function playSound(name) {
+        const buffer = soundBuffers[name];
         if (!audioContext || !buffer || audioContext.state !== 'running') return;
         const source = audioContext.createBufferSource();
         source.buffer = buffer;
@@ -45,6 +46,7 @@ window.addEventListener('load', function() {
         source.start(0);
     }
     
+    // ... reszta zmiennych gry
     let score, lives, missedEnemies, gameOver;
     let player, bullets, enemies;
     let enemyTimer, enemyInterval = 1000;
@@ -64,57 +66,69 @@ window.addEventListener('load', function() {
     canvas.addEventListener('click', () => { if (!gameOver && player) shootTriple() });
     superShotBtn.addEventListener('click', () => { if (!gameOver && superShotCooldown <= 0) { shootSuper(); startSuperShotCooldown(30000) }});
     newGameBtn.addEventListener('click', resetGame);
-    function shootTriple() { playSound(shootSoundBuffer); const bulletX = player.x + player.width / 2 - 2.5; setTimeout(() => { if (!gameOver) bullets.push(new Bullet(bulletX, player.y)) }, 0); setTimeout(() => { if (!gameOver) bullets.push(new Bullet(bulletX, player.y)) }, 100); setTimeout(() => { if (!gameOver) bullets.push(new Bullet(bulletX, player.y)) }, 200); }
-    function shootSuper() { playSound(superShotSoundBuffer); const bulletCount = 30; for (let i = 0; i < bulletCount; i++) { const angle = (Math.PI * 2 / bulletCount) * i; bullets.push(new Bullet(player.x + player.width / 2, player.y + player.height / 2, 'red', 300, angle)); } }
+    
+    function shootTriple() { playSound('shoot'); const bulletX = player.x + player.width / 2 - 2.5; setTimeout(() => { if (!gameOver) bullets.push(new Bullet(bulletX, player.y)) }, 0); setTimeout(() => { if (!gameOver) bullets.push(new Bullet(bulletX, player.y)) }, 100); setTimeout(() => { if (!gameOver) bullets.push(new Bullet(bulletX, player.y)) }, 200); }
+    function shootSuper() { playSound('superShot'); const bulletCount = 30; for (let i = 0; i < bulletCount; i++) { const angle = (Math.PI * 2 / bulletCount) * i; bullets.push(new Bullet(player.x + player.width / 2, player.y + player.height / 2, 'red', 300, angle)); } }
     function startSuperShotCooldown(duration) { superShotCooldown = duration; superShotBtn.disabled = true; if (cooldownInterval) clearInterval(cooldownInterval); cooldownInterval = setInterval(() => { superShotCooldown -= 1000; if (superShotCooldown <= 0) { superShotBtn.disabled = false; superShotBtn.innerText = "SUPER STRZAŁ"; clearInterval(cooldownInterval); } else { superShotBtn.innerText = `GOTOWY ZA ${superShotCooldown / 1000}s`; } }, 1000); }
     function handleGameElements(deltaTime) { if (enemyTimer > enemyInterval) { enemies.push(new Enemy()); enemyTimer = 0; } else { enemyTimer += deltaTime * 1000; } [...bullets, ...enemies].forEach(obj => obj.update(deltaTime)); [...bullets, ...enemies].forEach(obj => obj.draw(ctx)); bullets.forEach(bullet => { enemies.forEach(enemy => { if (!bullet.markedForDeletion && !enemy.markedForDeletion && checkCollision(bullet, enemy)) { enemy.markedForDeletion = true; bullet.markedForDeletion = true; score += 10; } }); }); bullets = bullets.filter(bullet => !bullet.markedForDeletion); enemies = enemies.filter(enemy => !enemy.markedForDeletion); }
     function checkCollision(rect1, rect2) { return (rect1.x < rect2.x + rect2.width && rect1.x + rect1.width > rect2.x && rect1.y < rect2.y + rect2.height && rect1.y + rect1.height > rect2.y); }
-    function checkGameState() { if (missedEnemies >= 3) { lives--; missedEnemies = 0; if (lives > 0) { playSound(lifeLostSoundBuffer); } } if (lives <= 0 && !gameOver) { gameOver = true; } }
+    function checkGameState() { if (missedEnemies >= 3) { lives--; missedEnemies = 0; if (lives > 0) { playSound('lifeLost'); } } if (lives <= 0 && !gameOver) { gameOver = true; } }
     function updateUI() { scoreEl.innerHTML = `WYNIK: ${score}`; livesEl.innerHTML = `ŻYCIA: ${lives}`; }
-    function animate(timestamp) { if (!lastTime) lastTime = timestamp; const deltaTime = (timestamp - lastTime) / 1000; lastTime = timestamp; ctx.clearRect(0, 0, canvas.width, canvas.height); player.update(input.x); player.draw(ctx); handleGameElements(deltaTime); checkGameState(); updateUI(); if (gameOver) { if (gameOverScreen.style.display !== 'flex') { playSound(gameOverSoundBuffer); setTimeout(() => { gameOverScreen.style.display = 'flex'; finalScoreEl.innerText = score; clearInterval(cooldownInterval); }, 500); } } else { animationFrameId = requestAnimationFrame(animate); } }
+    function animate(timestamp) { if (!lastTime) lastTime = timestamp; const deltaTime = (timestamp - lastTime) / 1000; lastTime = timestamp; ctx.clearRect(0, 0, canvas.width, canvas.height); player.update(input.x); player.draw(ctx); handleGameElements(deltaTime); checkGameState(); updateUI(); if (gameOver) { if (gameOverScreen.style.display !== 'flex') { playSound('gameOver'); setTimeout(() => { gameOverScreen.style.display = 'flex'; finalScoreEl.innerText = score; clearInterval(cooldownInterval); }, 500); } } else { animationFrameId = requestAnimationFrame(animate); } }
     function resetGame() { if (animationFrameId) cancelAnimationFrame(animationFrameId); if (cooldownInterval) clearInterval(cooldownInterval); score = 0; lives = 3; missedEnemies = 0; gameOver = false; bullets = []; enemies = []; enemyTimer = 0; gameOverScreen.style.display = 'none'; resizeGame(); player = new Player(); input.x = canvas.width / 2; startSuperShotCooldown(5000); lastTime = 0; animate(0); }
 
-    // --- ZMIANA: Ulepszona logika startowa ---
-    async function loadSound(url) {
-        const response = await fetch(url);
-        const arrayBuffer = await response.arrayBuffer();
-        const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
-        return audioBuffer;
-    }
-
-    async function unlockAudioAndStartGame() {
-        // Stwórz AudioContext, jeśli jeszcze nie istnieje
-        if (!audioContext) {
-            audioContext = new (window.AudioContext || window.webkitAudioContext)();
-        }
-
-        // --- KLUCZOWA POPRAWKA DLA iOS/MOBILE ---
-        // Jeśli kontekst jest "uśpiony", "obudź" go.
-        if (audioContext.state === 'suspended') {
-            await audioContext.resume();
-        }
-        // --- KONIEC POPRAWKI ---
-
-        startScreen.innerHTML = '<h1>ŁADOWANIE DŹWIĘKÓW...</h1>';
-        startScreen.style.cursor = 'default';
+    // --- ZMIANA: NOWA, OSTATECZNA LOGIKA STARTOWA ---
+    function unlockAudioAndStartGame() {
         startScreen.removeEventListener('click', unlockAudioAndStartGame);
         startScreen.removeEventListener('touchstart', unlockAudioAndStartGame);
 
-        try {
-            [shootSoundBuffer, lifeLostSoundBuffer, gameOverSoundBuffer, superShotSoundBuffer] = await Promise.all([
-                loadSound('https://johntaronites.github.io/Shooter_AI/laser_shoot.wav'),
-                loadSound('https://johntaronites.github.io/Shooter_AI/craaash.wav'),
-                loadSound('https://johntaronites.github.io/KOSMO-MAX/Ohnoo.wav'),
-                loadSound('https://johntaronites.github.io/KOSMO-MAX/bigbomb.wav')
-            ]);
-            
+        // 1. Stwórz AudioContext
+        if (!audioContext) {
+            audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            console.log('AudioContext stworzony. Stan:', audioContext.state);
+        }
+        
+        // 2. "Oszukaj" przeglądarkę, odtwarzając pusty dźwięk NATYCHMIAST po kliknięciu
+        // To jest kluczowy krok dla najbardziej restrykcyjnych przeglądarek mobilnych
+        const dummyBuffer = audioContext.createBuffer(1, 1, 22050);
+        const dummySource = audioContext.createBufferSource();
+        dummySource.buffer = dummyBuffer;
+        dummySource.connect(audioContext.destination);
+        dummySource.start();
+        console.log('Odtworzono pusty dźwięk w celu odblokowania. Stan kontekstu:', audioContext.state);
+
+        // 3. Po odblokowaniu, kontynuuj z właściwym ładowaniem
+        startScreen.innerHTML = '<h1>ŁADOWANIE DŹWIĘKÓW...</h1>';
+        startScreen.style.cursor = 'default';
+
+        const soundUrls = {
+            shoot: 'https://johntaronites.github.io/Shooter_AI/laser_shoot.wav',
+            lifeLost: 'https://johntaronites.github.io/Shooter_AI/craaash.wav',
+            gameOver: 'https://johntaronites.github.io/KOSMO-MAX/Ohnoo.wav',
+            superShot: 'https://johntaronites.github.io/KOSMO-MAX/bigbomb.wav'
+        };
+
+        const loadPromises = Object.entries(soundUrls).map(async ([name, url]) => {
+            try {
+                const response = await fetch(url);
+                const arrayBuffer = await response.arrayBuffer();
+                const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+                soundBuffers[name] = audioBuffer;
+            } catch (error) {
+                console.error(`Błąd ładowania dźwięku ${name}:`, error);
+                // Rzuć błąd dalej, aby Promise.all go złapał
+                throw new Error(`Nie udało się załadować ${name}`);
+            }
+        });
+
+        Promise.all(loadPromises).then(() => {
+            console.log('Wszystkie dźwięki załadowane.');
             startScreen.style.display = 'none';
             resetGame();
-
-        } catch (error) {
+        }).catch(error => {
             startScreen.innerHTML = '<h1>Błąd ładowania dźwięku.</h1><p>Spróbuj odświeżyć stronę.</p>';
-            console.error('Błąd podczas ładowania dźwięków:', error);
-        }
+            console.error(error);
+        });
     }
 
     function showInitialLoading() {
