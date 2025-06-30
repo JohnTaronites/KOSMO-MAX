@@ -27,25 +27,16 @@ window.addEventListener('load', function() {
     newGameBtn.addEventListener('click', resetGame);
     gameOverScreen.appendChild(gameOverTitle); gameOverScreen.appendChild(finalScoreText); gameOverScreen.appendChild(newGameBtn);
     const startScreen = document.createElement('div');
-    startScreen.style.position = 'absolute'; startScreen.style.width = '100%'; startScreen.style.height = '100%'; startScreen.style.display = 'flex'; startScreen.style.flexDirection = 'column'; startScreen.style.justifyContent = 'center'; startScreen.style.alignItems = 'center'; startScreen.style.backgroundColor = 'rgba(0,0,0,0.85)'; startScreen.style.color = 'white'; startScreen.style.fontFamily = 'Segoe UI, Tahoma, sans-serif'; startScreen.style.fontSize = '24px'; startScreen.style.textAlign = 'center'; startScreen.style.cursor = 'pointer';
+    startScreen.style.position = 'absolute'; startScreen.style.width = '100%'; startScreen.style.height = '100%'; startScreen.style.display = 'none'; // Zaczyna ukryty
+    startScreen.style.flexDirection = 'column'; startScreen.style.justifyContent = 'center'; startScreen.style.alignItems = 'center'; startScreen.style.backgroundColor = 'rgba(0,0,0,0.85)'; startScreen.style.color = 'white'; startScreen.style.fontFamily = 'Segoe UI, Tahoma, sans-serif'; startScreen.style.fontSize = '24px'; startScreen.style.textAlign = 'center'; startScreen.style.cursor = 'pointer';
     startScreen.innerHTML = '<h1>KOSMICZNA STRZELANKA</h1><p style="margin-top: 20px;">Kliknij lub dotknij ekranu, aby rozpocząć!</p>';
     gameContainer.appendChild(uiContainer); gameContainer.appendChild(superShotBtn); gameContainer.appendChild(gameOverScreen); gameContainer.appendChild(startScreen);
 
-    // --- ZASOBY GRY ---
+    // --- ZASOBY GRY i reszta kodu (bez zmian) ---
     const shipImage = new Image();
     let audioContext;
     let soundBuffers = {}; 
-
-    function playSound(name) {
-        const buffer = soundBuffers[name];
-        if (!audioContext || !buffer || audioContext.state !== 'running') return;
-        const source = audioContext.createBufferSource();
-        source.buffer = buffer;
-        source.connect(audioContext.destination);
-        source.start(0);
-    }
-    
-    // --- reszta zmiennych, klas i logiki gry (bez zmian) ---
+    function playSound(name) { const buffer = soundBuffers[name]; if (!audioContext || !buffer || audioContext.state !== 'running') return; const source = audioContext.createBufferSource(); source.buffer = buffer; source.connect(audioContext.destination); source.start(0); }
     let score, lives, missedEnemies, gameOver;
     let player, bullets, enemies;
     let enemyTimer, enemyInterval = 1000;
@@ -72,18 +63,21 @@ window.addEventListener('load', function() {
     function updateUI() { scoreEl.innerHTML = `WYNIK: ${score}`; livesEl.innerHTML = `ŻYCIA: ${lives}`; }
     function animate(timestamp) { if (!lastTime) lastTime = timestamp; const deltaTime = (timestamp - lastTime) / 1000; lastTime = timestamp; ctx.clearRect(0, 0, canvas.width, canvas.height); player.update(input.x); player.draw(ctx); handleGameElements(deltaTime); checkGameState(); updateUI(); if (gameOver) { if (gameOverScreen.style.display !== 'flex') { playSound('gameOver'); setTimeout(() => { gameOverScreen.style.display = 'flex'; finalScoreEl.innerText = score; clearInterval(cooldownInterval); }, 500); } } else { animationFrameId = requestAnimationFrame(animate); } }
     function resetGame() { if (animationFrameId) cancelAnimationFrame(animationFrameId); if (cooldownInterval) clearInterval(cooldownInterval); score = 0; lives = 3; missedEnemies = 0; gameOver = false; bullets = []; enemies = []; enemyTimer = 0; gameOverScreen.style.display = 'none'; resizeGame(); player = new Player(); input.x = canvas.width / 2; startSuperShotCooldown(5000); lastTime = 0; animate(0); }
-
+    
+    // --- ZMIANA: NOWA, BARDZIEJ NIEZAWODNA LOGIKA STARTOWA ---
     function unlockAudioAndStartGame() {
-        startScreen.removeEventListener('click', unlockAudioAndStartGame);
-        startScreen.removeEventListener('touchstart', unlockAudioAndStartGame);
+        // Krok 1: Natychmiast usuń listenery, aby ta funkcja wykonała się tylko raz.
+        window.removeEventListener('click', unlockAudioAndStartGame);
+        window.removeEventListener('touchstart', unlockAudioAndStartGame);
+        
+        startScreen.innerHTML = '<h1>ŁADOWANIE...</h1>';
+        startScreen.style.cursor = 'default';
+
         if (!audioContext) {
             audioContext = new (window.AudioContext || window.webkitAudioContext)();
         }
-        audioContext.resume().then(() => {
-            console.log("AudioContext jest w stanie 'running'. Rozpoczynanie ładowania dźwięków.");
-            startScreen.innerHTML = '<h1>ŁADOWANIE DŹWIĘKÓW...</h1>';
-            startScreen.style.cursor = 'default';
 
+        audioContext.resume().then(() => {
             const soundUrls = {
                 shoot: 'assets/laser_shoot.wav',
                 lifeLost: 'assets/craaash.wav',
@@ -102,31 +96,32 @@ window.addEventListener('load', function() {
             resetGame();
         }).catch(error => {
             console.error("Błąd podczas inicjalizacji audio:", error);
-            startScreen.innerHTML = '<h1>Błąd audio</h1><p>Spróbuj odświeżyć stronę lub użyć innej przeglądarki.</p>';
+            startScreen.innerHTML = '<h1>Błąd audio</h1><p>Spróbuj odświeżyć stronę.</p>';
         });
     }
 
+    function onImageLoaded() {
+        console.log("Grafika załadowana. Pokazywanie ekranu startowego.");
+        startScreen.style.display = 'flex';
+        // Nasłuchuj na całym oknie, a nie na samym ekranie startowym
+        window.addEventListener('click', unlockAudioAndStartGame);
+        window.addEventListener('touchstart', unlockAudioAndStartGame);
+    }
+    
     function showInitialLoading() {
         ctx.fillStyle = 'black'; ctx.fillRect(0, 0, canvas.width, canvas.height);
         ctx.fillStyle = 'white'; ctx.font = "30px 'Segoe UI'";
         ctx.textAlign = 'center'; ctx.fillText('ŁADOWANIE GRAFIKI...', canvas.width / 2, canvas.height / 2);
     }
     
-    // --- ZMIANA: Logika startowa z zabezpieczeniem ---
-    function onAssetsLoaded() {
-        startScreen.addEventListener('click', unlockAudioAndStartGame);
-        startScreen.addEventListener('touchstart', unlockAudioAndStartGame);
-    }
-
     showInitialLoading();
     
-    shipImage.onload = onAssetsLoaded;
-    shipImage.onerror = () => alert("BŁĄD: Nie można załadować grafiki. Upewnij się, że plik ship.png jest w folderze 'assets'.");
+    shipImage.onload = onImageLoaded;
+    shipImage.onerror = () => alert("BŁĄD: Nie można załadować grafiki.");
     shipImage.src = 'assets/ship.png';
 
-    // Dodatkowe zabezpieczenie: jeśli obrazek jest już w cache, uruchom funkcję ręcznie
     if (shipImage.complete) {
-        onAssetsLoaded();
+        onImageLoaded();
     }
     // --- KONIEC ZMIANY ---
 });
