@@ -13,8 +13,7 @@ window.addEventListener('load', function() {
     const newGameBtn = document.getElementById('newGameBtn');
     const superShotBtn = document.getElementById('superShotBtn');
 
-    // --- ZASOBY I STANY GRY ---
-    const spriteSheet = new Image();
+    // --- Usunięto ładowanie obrazków, dźwięki zostają ---
     const shootSound = new Audio('https://johntaronites.github.io/Shooter_AI/laser_shoot.wav');
     const lifeLostSound = new Audio('https://johntaronites.github.io/Shooter_AI/craaash.wav');
     shootSound.volume = 0.3;
@@ -23,31 +22,34 @@ window.addEventListener('load', function() {
     let score, lives, missedEnemies, gameOver;
     let player, bullets, enemies, enemyTimer;
     
-    // Zmienne do zarządzania timerami - kluczowe dla naprawy błędu
     let superShotCooldown;
     let cooldownInterval;
     let animationFrameId;
-
-    const playerSprite = { x: 0, y: 0, width: 98, height: 75 };
-    const enemySprite = { x: 0, y: 75, width: 98, height: 84 };
     
     // --- KLASY OBIEKTÓW ---
     class Player {
         constructor() {
-            this.width = playerSprite.width / 2;
-            this.height = playerSprite.height / 2;
+            this.width = 50;
+            this.height = 50;
             this.x = (canvas.width - this.width) / 2;
-            this.y = canvas.height - this.height - 70;
+            this.y = canvas.height - this.height - 20;
         }
         draw() {
-            ctx.drawImage(spriteSheet, playerSprite.x, playerSprite.y, playerSprite.width, playerSprite.height, this.x, this.y, this.width, this.height);
+            ctx.beginPath();
+            ctx.moveTo(this.x, this.y); // Górny wierzchołek
+            ctx.lineTo(this.x - this.width / 2, this.y + this.height); // Lewy dolny
+            ctx.lineTo(this.x + this.width / 2, this.y + this.height); // Prawy dolny
+            ctx.closePath();
+            ctx.fillStyle = 'white';
+            ctx.fill();
         }
         update(inputX) {
             if (inputX !== null) {
-                this.x = inputX - this.width / 2;
+                // Pozycja myszy/palca celuje w środek trójkąta
+                this.x = inputX;
             }
-            if (this.x < 0) this.x = 0;
-            if (this.x > canvas.width - this.width) this.x = canvas.width - this.width;
+            if (this.x - this.width / 2 < 0) this.x = this.width / 2;
+            if (this.x + this.width / 2 > canvas.width) this.x = canvas.width - this.width / 2;
         }
     }
 
@@ -73,39 +75,43 @@ window.addEventListener('load', function() {
 
     class Enemy {
         constructor() {
-            this.width = enemySprite.width / 2;
-            this.height = enemySprite.height / 2;
-            this.x = Math.random() * (canvas.width - this.width);
+            this.width = 50;
+            this.height = 50;
+            this.x = Math.random() * (canvas.width - this.width) + this.width / 2;
             this.y = -this.height;
             this.speed = Math.random() * 2 + 1;
+        }
+        draw() {
+            ctx.beginPath();
+            ctx.moveTo(this.x, this.y + this.height); // Dolny wierzchołek
+            ctx.lineTo(this.x - this.width / 2, this.y); // Lewy górny
+            ctx.lineTo(this.x + this.width / 2, this.y); // Prawy górny
+            ctx.closePath();
+            ctx.fillStyle = '#ff4d4d'; // Czerwony kolor dla wrogów
+            ctx.fill();
         }
         update() {
             this.y += this.speed;
         }
-        draw() {
-            ctx.drawImage(spriteSheet, enemySprite.x, enemySprite.y, enemySprite.width, enemySprite.height, this.x, this.y, this.width, this.height);
-        }
     }
 
     // --- KONTROLER WEJŚCIA ---
-    const input = { x: null };
+    const input = { x: canvas.width / 2 };
     
     function getPointerPos(evt) {
         const rect = canvas.getBoundingClientRect();
         const touch = evt.touches ? evt.touches[0] : evt;
-        return {
-            x: (touch.clientX - rect.left) / rect.width * canvas.width
-        };
+        return (touch.clientX - rect.left) / rect.width * canvas.width;
     }
     
     window.addEventListener('mousemove', e => {
-        if (player) input.x = getPointerPos(e).x;
+        if (player) input.x = getPointerPos(e);
     });
     
     window.addEventListener('touchmove', e => {
         if (player) {
             e.preventDefault();
-            input.x = getPointerPos(e).x;
+            input.x = getPointerPos(e);
         }
     }, { passive: false });
 
@@ -116,7 +122,7 @@ window.addEventListener('load', function() {
     superShotBtn.addEventListener('click', () => {
         if (!gameOver && superShotCooldown <= 0) {
             shootSuper();
-            startSuperShotCooldown(30000); // 30 sekund
+            startSuperShotCooldown(30000);
         }
     });
     
@@ -126,25 +132,24 @@ window.addEventListener('load', function() {
     function shootTriple() {
         shootSound.currentTime = 0;
         shootSound.play();
-        setTimeout(() => { if (!gameOver) bullets.push(new Bullet(player.x + player.width / 2 - 2.5, player.y)) }, 0);
-        setTimeout(() => { if (!gameOver) bullets.push(new Bullet(player.x + player.width / 2 - 2.5, player.y)) }, 100);
-        setTimeout(() => { if (!gameOver) bullets.push(new Bullet(player.x + player.width / 2 - 2.5, player.y)) }, 200);
+        const bulletX = player.x - 2.5; // Strzał ze środka
+        setTimeout(() => { if (!gameOver) bullets.push(new Bullet(bulletX, player.y)) }, 0);
+        setTimeout(() => { if (!gameOver) bullets.push(new Bullet(bulletX, player.y)) }, 100);
+        setTimeout(() => { if (!gameOver) bullets.push(new Bullet(bulletX, player.y)) }, 200);
     }
 
     function shootSuper() {
         const bulletCount = 30;
         for (let i = 0; i < bulletCount; i++) {
             const angle = (Math.PI * 2 / bulletCount) * i;
-            bullets.push(new Bullet(player.x + player.width / 2, player.y + player.height / 2, 'red', 5, angle));
+            bullets.push(new Bullet(player.x, player.y + player.height / 2, 'red', 5, angle));
         }
     }
 
     function startSuperShotCooldown(duration) {
         superShotCooldown = duration;
         superShotBtn.disabled = true;
-
-        if (cooldownInterval) clearInterval(cooldownInterval); // Wyczyść stary na wszelki wypadek
-
+        if (cooldownInterval) clearInterval(cooldownInterval);
         cooldownInterval = setInterval(() => {
             superShotCooldown -= 1000;
             if (superShotCooldown <= 0) {
@@ -158,15 +163,11 @@ window.addEventListener('load', function() {
     }
 
     function handleGameElements() {
-        // Pociski
         for (let i = bullets.length - 1; i >= 0; i--) {
             bullets[i].update();
             bullets[i].draw();
-            if (bullets[i].y < -20 || bullets[i].y > canvas.height + 20 || bullets[i].x < -20 || bullets[i].x > canvas.width + 20) {
-                bullets.splice(i, 1);
-            }
+            if (bullets[i].y < -20) bullets.splice(i, 1);
         }
-        // Przeciwnicy
         enemyTimer++;
         if (enemyTimer % 100 === 0) {
             enemies.push(new Enemy());
@@ -179,21 +180,19 @@ window.addEventListener('load', function() {
                 missedEnemies++;
             }
         }
-        // Kolizje
         for (let i = enemies.length - 1; i >= 0; i--) {
             for (let j = bullets.length - 1; j >= 0; j--) {
                 const enemy = enemies[i];
                 const bullet = bullets[j];
                 if (enemy && bullet &&
-                    bullet.x < enemy.x + enemy.width &&
-                    bullet.x + bullet.width > enemy.x &&
+                    bullet.x < enemy.x + enemy.width / 2 &&
+                    bullet.x + bullet.width > enemy.x - enemy.width / 2 &&
                     bullet.y < enemy.y + enemy.height &&
                     bullet.y + bullet.height > enemy.y) {
-                    
                     enemies.splice(i, 1);
                     bullets.splice(j, 1);
                     score += 10;
-                    break; // Przerwij wewnętrzną pętlę, bo wróg już nie istnieje
+                    break;
                 }
             }
         }
@@ -205,17 +204,14 @@ window.addEventListener('load', function() {
             missedEnemies = 0;
             if (lives > 0) lifeLostSound.play();
         }
-        if (lives <= 0) {
-            gameOver = true;
-        }
+        if (lives <= 0) gameOver = true;
     }
 
     function updateUI() {
         scoreEl.textContent = score;
         livesEl.textContent = lives;
     }
-    
-    // --- PĘTLA GŁÓWNA I ZARZĄDZANIE ---
+
     function animate() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         
@@ -229,14 +225,13 @@ window.addEventListener('load', function() {
         if (gameOver) {
             gameOverScreen.style.display = 'flex';
             finalScoreEl.textContent = score;
-            clearInterval(cooldownInterval); // Zatrzymaj odliczanie na ekranie game over
+            clearInterval(cooldownInterval);
         } else {
             animationFrameId = requestAnimationFrame(animate);
         }
     }
 
     function resetGame() {
-        // Zawsze czyść timery na starcie nowej gry!
         if (animationFrameId) cancelAnimationFrame(animationFrameId);
         if (cooldownInterval) clearInterval(cooldownInterval);
 
@@ -253,29 +248,12 @@ window.addEventListener('load', function() {
 
         gameOverScreen.style.display = 'none';
         
-        startSuperShotCooldown(5000); // Na start dajemy np. 5s cooldownu
+        startSuperShotCooldown(5000);
         updateUI();
         animate();
     }
 
     // --- START APLIKACJI ---
-    function showLoading() {
-        ctx.fillStyle = 'black';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.fillStyle = 'white';
-        ctx.font = "30px 'Segoe UI'";
-        ctx.textAlign = 'center';
-        ctx.fillText('ŁADOWANIE...', canvas.width / 2, canvas.height / 2);
-    }
-    
-    showLoading(); // Pokaż ekran ładowania od razu
-    
-    spriteSheet.onload = function() {
-        console.log("Zasoby załadowane. Start gry!");
-        resetGame();
-    };
-    spriteSheet.onerror = function() {
-        alert("BŁĄD: Nie można załadować grafiki statków. Sprawdź połączenie z internetem i odśwież stronę.");
-    };
-    spriteSheet.src = 'https://i.imgur.com/goYityG.png';
+    // Nie potrzebujemy już ekranu ładowania, gra startuje od razu.
+    resetGame();
 });
