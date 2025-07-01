@@ -1,14 +1,14 @@
-// Wersja 1.2
+// Wersja 1.3
 window.addEventListener('load', function() {
     // --- GŁÓWNE ZMIENNE I KONFIGURACJA ---
-    const version = '1.2';
+    const version = '1.3';
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
     const startScreen = document.getElementById('startScreen');
     const versionDisplay = document.getElementById('version-display');
     versionDisplay.innerText = `v${version}`;
 
-    // --- UI TWORZONE W JAVASCRIPT ---
+    // --- TWORZENIE ELEMENTÓW INTERFEJSU (UI) ---
     const gameUiElements = document.createElement('div');
     gameUiElements.style.display = 'none';
     const uiContainer = document.createElement('div');
@@ -29,11 +29,12 @@ window.addEventListener('load', function() {
     finalScoreText.appendChild(finalScoreEl);
     const newGameBtn = document.createElement('button');
     newGameBtn.innerText = 'NOWA GRA'; newGameBtn.style.marginTop = '30px'; newGameBtn.style.padding = '15px 30px'; newGameBtn.style.fontSize = '1.2em'; newGameBtn.style.cursor = 'pointer'; newGameBtn.style.backgroundColor = '#4CAF50'; newGameBtn.style.color = 'white'; newGameBtn.style.border = 'none'; newGameBtn.style.borderRadius = '5px';
+    newGameBtn.addEventListener('click', resetGame);
     gameOverScreen.appendChild(gameOverTitle); gameOverScreen.appendChild(finalScoreText); gameOverScreen.appendChild(newGameBtn);
     gameUiElements.appendChild(uiContainer); gameUiElements.appendChild(superShotBtn);
     document.body.appendChild(gameUiElements); document.body.appendChild(gameOverScreen);
 
-    // --- ZASOBY I ZMIENNE GRY ---
+    // --- ZASOBY GRY I SYSTEM AUDIO ---
     const shipImage = new Image();
     let audioContext;
     let soundBuffers = {}; 
@@ -41,6 +42,7 @@ window.addEventListener('load', function() {
     
     function playSound(name) { const buffer = soundBuffers[name]; if (!audioContext || !buffer || audioContext.state !== 'running') return; const source = audioContext.createBufferSource(); source.buffer = buffer; source.connect(audioContext.destination); source.start(0); }
     
+    // --- ZMIENNE STANU GRY ---
     let score, lives, missedEnemies, gameOver, animationFrameId, lastTime = 0;
     let player, bullets, enemies;
     let currentLevel, enemyBaseSpeed, enemySpeedMultiplier;
@@ -88,41 +90,53 @@ window.addEventListener('load', function() {
         animate(0);
     }
 
-    // --- ZMIANA: NOWA, OSTATECZNA ARCHITEKTURA STARTOWA ---
+    // --- ZMIANA: OSTATECZNA ARCHITEKTURA STARTOWA ---
 
-    // Funkcja do aktywacji audio i rozpoczęcia gry
-    function initAudioAndStartGame() {
-        // Usuń listenery, aby zapobiec ponownemu wywołaniu
-        startScreen.removeEventListener('click', initAudioAndStartGame);
-        startScreen.removeEventListener('touchstart', initAudioAndStartGame);
-
-        // KROK 1: Stwórz AudioContext w odpowiedzi na akcję użytkownika
-        if (!audioContext) {
-            audioContext = new (window.AudioContext || window.webkitAudioContext)();
-        }
-
-        // KROK 2: NATYCHMIAST spróbuj wznowić kontekst.
-        // To jest kluczowy moment. `resume()` musi być bezpośrednio w evencie.
-        if (audioContext.state === 'suspended') {
-            audioContext.resume().catch(e => console.error("Nie udało się wznowić AudioContext:", e));
-        }
-
-        // Niezależnie od sukcesu audio, kontynuuj z resztą
-        loadAssetsAndStartGame();
-    }
-    
-    // Uruchamia ładowanie i faktyczną grę
-    async function loadAssetsAndStartGame() {
+    // Funkcja wywoływana po kliknięciu "Start"
+    function initAndStartGame() {
+        startScreen.removeEventListener('click', initAndStartGame);
+        startScreen.removeEventListener('touchstart', initAndStartGame);
+        
+        // Pokaż graczowi, że coś się dzieje
         startScreen.style.display = 'none';
         canvas.style.display = 'block';
         gameUiElements.style.display = 'block';
         resizeGame();
-        
         ctx.fillStyle = 'white';
         ctx.font = "30px 'Segoe UI'";
         ctx.textAlign = 'center';
         ctx.fillText('ŁADOWANIE ZASOBÓW...', canvas.width / 2, canvas.height / 2);
+
+        // Krok 1: Stwórz AudioContext
+        if (!audioContext) {
+            audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        }
+
+        // Krok 2: Odtwórz pusty dźwięk, aby "oszukać" przeglądarkę i odblokować audio.
+        // To jest kluczowy, synchroniczny krok.
+        const oscillator = audioContext.createOscillator();
+        oscillator.frequency.setValueAtTime(0, audioContext.currentTime);
+        oscillator.connect(audioContext.destination);
+        try {
+            oscillator.start(0);
+            oscillator.stop(audioContext.currentTime + 0.001); // Zatrzymaj niemal natychmiast
+        } catch (e) {
+            // Starsze przeglądarki mogą rzucić błąd, jeśli start/stop jest za szybki. Ignorujemy.
+        }
         
+        // Krok 3: Spróbuj wznowić kontekst. Po powyższej sztuczce powinno się udać.
+        audioContext.resume().then(() => {
+            console.log("AudioContext gotowy i działa. Stan:", audioContext.state);
+            loadAllAssets(); // Kontynuuj z ładowaniem zasobów
+        }).catch(e => {
+            console.error("Nie udało się wznowić AudioContext:", e);
+            // Mimo wszystko kontynuuj, gra będzie po prostu bez dźwięku
+            loadAllAssets(true);
+        });
+    }
+    
+    // Ładuje wszystkie zasoby
+    async function loadAllAssets(audioFailed = false) {
         try {
             const imagePromise = new Promise((resolve, reject) => {
                 shipImage.onload = () => resolve();
@@ -130,22 +144,17 @@ window.addEventListener('load', function() {
                 shipImage.src = 'assets/ship.png';
             });
             
-            // Spróbuj załadować dźwięki, ale nie blokuj gry, jeśli się nie uda
-            const soundUrls = {
-                shoot: 'assets/laser_shoot.wav',
-                lifeLost: 'assets/craaash.wav',
-                gameOver: 'assets/Ohnoo.wav',
-                superShot: 'assets/bigbomb.wav'
-            };
-            const soundPromises = Object.entries(soundUrls).map(([name, url]) =>
-                fetch(url)
-                    .then(response => response.arrayBuffer())
-                    .then(arrayBuffer => audioContext.decodeAudioData(arrayBuffer))
-                    .then(audioBuffer => { soundBuffers[name] = audioBuffer; })
-                    .catch(e => console.warn(`Nie udało się załadować dźwięku: ${name}`, e)) // Złap błędy pojedynczych dźwięków
-            );
+            let soundPromises = [];
+            if (!audioFailed) {
+                const soundUrls = { shoot: 'assets/laser_shoot.wav', lifeLost: 'assets/craaash.wav', gameOver: 'assets/Ohnoo.wav', superShot: 'assets/bigbomb.wav' };
+                soundPromises = Object.entries(soundUrls).map(([name, url]) =>
+                    fetch(url)
+                        .then(response => response.arrayBuffer())
+                        .then(arrayBuffer => audioContext.decodeAudioData(arrayBuffer))
+                        .then(audioBuffer => { soundBuffers[name] = audioBuffer; })
+                );
+            }
 
-            // Zaczekaj na WSZYSTKO
             await Promise.all([imagePromise, ...soundPromises]);
             
             allAssetsLoaded = true;
@@ -154,13 +163,13 @@ window.addEventListener('load', function() {
 
         } catch (error) {
             console.error("Błąd podczas ładowania zasobów:", error);
-            // Nadal uruchom grę, nawet jeśli zasoby zawiodły
-            allAssetsLoaded = true; // Ustaw na true, aby gra działała, choć bez obrazków/dźwięków
-            resetGame();
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.fillText('Błąd ładowania zasobów.', canvas.width / 2, canvas.height / 2);
         }
     }
 
     // --- PUNKT WEJŚCIA APLIKACJI ---
-    startScreen.addEventListener('click', initAudioAndStartGame);
-    startScreen.addEventListener('touchstart', initAudioAndStartGame);
+    // Pokaż ekran startowy i czekaj na kliknięcie użytkownika.
+    startScreen.addEventListener('click', initAndStartGame);
+    startScreen.addEventListener('touchstart', initAndStartGame);
 });
