@@ -1,4 +1,4 @@
-/* Wersja 1.0 */
+/* Wersja 1.1 */
 * {
     margin: 0;
     padding: 0;
@@ -14,7 +14,6 @@ html, body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 
-/* Główny obszar gry (canvas) */
 #gameCanvas {
     background-color: #000;
     background-image: 
@@ -28,7 +27,6 @@ html, body {
     left: 0;
 }
 
-/* Ekran startowy widoczny na początku */
 #startScreen {
     width: 100%;
     height: 100%;
@@ -48,13 +46,12 @@ html, body {
     font-size: 1.5em;
 }
 
-/* Wyświetlanie numeru wersji */
 #version-display {
     position: absolute;
     bottom: 5px;
     right: 10px;
     font-size: 12px;
     font-family: monospace;
-    color: #444; /* Ciemnoszary, prawie niewidoczny */
-    pointer-events: none; /* Nie blokuje kliknięć w grę */
+    color: #444;
+    pointer-events: none;
 }
