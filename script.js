@@ -1,22 +1,20 @@
 window.addEventListener('load', function() {
+    // --- USTAWIENIA I ZMIENNE ---
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
     const startScreen = document.getElementById('startScreen');
-
-    // --- ZMIANA: UI jest tworzone od razu, ale ukryte ---
-    const gameUiElements = document.createElement('div');
-    gameUiElements.style.display = 'none'; // Zaczyna ukryte
     
+    // UI jest tworzone od razu, ale staje się widoczne dopiero po starcie gry
+    const gameUiElements = document.createElement('div');
+    gameUiElements.style.display = 'none';
     const uiContainer = document.createElement('div');
     uiContainer.style.position = 'absolute'; uiContainer.style.left = '0'; uiContainer.style.top = '0'; uiContainer.style.width = '100%'; uiContainer.style.display = 'flex'; uiContainer.style.justifyContent = 'space-between'; uiContainer.style.padding = '10px 20px'; uiContainer.style.color = 'white'; uiContainer.style.fontFamily = 'Segoe UI, Tahoma, sans-serif'; uiContainer.style.fontSize = '20px'; uiContainer.style.textShadow = '2px 2px 4px #000'; uiContainer.style.pointerEvents = 'none';
     const scoreEl = document.createElement('div');
     const levelEl = document.createElement('div');
     const livesEl = document.createElement('div');
     uiContainer.appendChild(scoreEl); uiContainer.appendChild(levelEl); uiContainer.appendChild(livesEl);
-    
     const superShotBtn = document.createElement('button');
     superShotBtn.innerText = 'SUPER STRZAŁ'; superShotBtn.style.position = 'absolute'; superShotBtn.style.left = '50%'; superShotBtn.style.transform = 'translateX(-50%)'; superShotBtn.style.bottom = '20px'; superShotBtn.style.padding = '10px 20px'; superShotBtn.style.fontSize = '1em'; superShotBtn.style.backgroundColor = '#ff4500'; superShotBtn.style.color = 'white'; superShotBtn.style.border = '2px solid #ff8c00'; superShotBtn.style.borderRadius = '5px'; superShotBtn.style.cursor = 'pointer';
-    
     const gameOverScreen = document.createElement('div');
     gameOverScreen.style.position = 'absolute'; gameOverScreen.style.width = '100%'; gameOverScreen.style.height = '100%'; gameOverScreen.style.display = 'none'; gameOverScreen.style.flexDirection = 'column'; gameOverScreen.style.justifyContent = 'center'; gameOverScreen.style.alignItems = 'center'; gameOverScreen.style.backgroundColor = 'rgba(0,0,0,0.75)'; gameOverScreen.style.textAlign = 'center';
     const gameOverTitle = document.createElement('h1');
@@ -27,27 +25,25 @@ window.addEventListener('load', function() {
     finalScoreText.appendChild(finalScoreEl);
     const newGameBtn = document.createElement('button');
     newGameBtn.innerText = 'NOWA GRA'; newGameBtn.style.marginTop = '30px'; newGameBtn.style.padding = '15px 30px'; newGameBtn.style.fontSize = '1.2em'; newGameBtn.style.cursor = 'pointer'; newGameBtn.style.backgroundColor = '#4CAF50'; newGameBtn.style.color = 'white'; newGameBtn.style.border = 'none'; newGameBtn.style.borderRadius = '5px';
-    
     gameOverScreen.appendChild(gameOverTitle); gameOverScreen.appendChild(finalScoreText); gameOverScreen.appendChild(newGameBtn);
-    
-    gameUiElements.appendChild(uiContainer);
-    gameUiElements.appendChild(superShotBtn);
-    document.body.appendChild(gameUiElements);
-    document.body.appendChild(gameOverScreen);
+    gameUiElements.appendChild(uiContainer); gameUiElements.appendChild(superShotBtn);
+    document.body.appendChild(gameUiElements); document.body.appendChild(gameOverScreen);
 
-    // --- ZASOBY I ZMIENNE GRY ---
+    // --- ZASOBY GRY ---
     const shipImage = new Image();
     let audioContext;
     let soundBuffers = {}; 
+    let allAssetsLoaded = false;
     
     function playSound(name) { const buffer = soundBuffers[name]; if (!audioContext || !buffer || audioContext.state !== 'running') return; const source = audioContext.createBufferSource(); source.buffer = buffer; source.connect(audioContext.destination); source.start(0); }
-    let score, lives, missedEnemies, gameOver, animationFrameId;
+    
+    // --- ZMIENNE STANU GRY ---
+    let score, lives, missedEnemies, gameOver, animationFrameId, lastTime = 0;
     let player, bullets, enemies;
-    let lastTime = 0;
     let currentLevel, enemyBaseSpeed, enemySpeedMultiplier;
     let baseEnemyInterval, enemySpawnMultiplier, enemySpawnTimer;
     let superShotCharges, maxSuperShotCharges;
-    
+
     // --- KLASY I LOGIKA GRY (BEZ ZMIAN) ---
     class Player { constructor() { this.width = 50; this.height = 40; this.x = canvas.width / 2 - this.width / 2; this.bottomLimit = 100; this.y = canvas.height - this.height - this.bottomLimit; } draw(context) { context.drawImage(shipImage, this.x, this.y, this.width, this.height); } update(inputX) { if (inputX !== null) { this.x = inputX - this.width / 2; } if (this.x < 0) this.x = 0; if (this.x > canvas.width - this.width) this.x = canvas.width - this.width; } }
     class Bullet { constructor(x, y, color = 'white', speed = 500, angle = 0) { this.x = x; this.y = y; this.width = 5; this.height = 15; this.color = color; this.speedX = Math.sin(angle) * speed; this.speedY = -Math.cos(angle) * speed; this.markedForDeletion = false; } update(deltaTime) { this.x += this.speedX * deltaTime; this.y += this.speedY * deltaTime; if (this.y < 0) this.markedForDeletion = true; } draw(context) { context.fillStyle = this.color; context.fillRect(this.x, this.y, this.width, this.height); } }
@@ -73,58 +69,82 @@ window.addEventListener('load', function() {
     function checkLevelUp() { if (currentLevel === 1 && score >= 200) { levelUp(2); } else if (currentLevel === 2 && score >= 500) { levelUp(3); } }
     function animate(timestamp) { if (!lastTime) lastTime = timestamp; const deltaTime = (timestamp - lastTime) / 1000; lastTime = timestamp; ctx.clearRect(0, 0, canvas.width, canvas.height); if (player) { player.update(input.x); player.draw(ctx); } handleGameElements(deltaTime); checkGameState(); updateUI(); checkLevelUp(); if (gameOver) { if (gameOverScreen.style.display !== 'flex') { playSound('gameOver'); setTimeout(() => { gameOverScreen.style.display = 'flex'; finalScoreEl.innerText = score; }, 500); } } else { animationFrameId = requestAnimationFrame(animate); } }
     function resetGame() { if (animationFrameId) cancelAnimationFrame(animationFrameId); score = 0; lives = 3; missedEnemies = 0; gameOver = false; bullets = []; enemies = []; currentLevel = 1; enemyBaseSpeed = 100; enemySpeedMultiplier = 1.0; baseEnemyInterval = 1000; enemySpawnMultiplier = 1.0; enemySpawnTimer = 0; maxSuperShotCharges = 2; superShotCharges = maxSuperShotCharges; gameOverScreen.style.display = 'none'; resizeGame(); player = new Player(); input.x = canvas.width / 2; lastTime = 0; updateUI(); animate(0); }
-    
-    // --- ZMIANA: NOWA LOGIKA STARTOWA ---
-    function initAndStartGame() {
-        // Usuń listenery, aby ta funkcja wykonała się tylko raz
-        startScreen.removeEventListener('click', initAndStartGame);
-        startScreen.removeEventListener('touchstart', initAndStartGame);
 
-        // Pokaż canvas i ukryj przycisk start
+    // --- ZMIANA: NOWA, OSTATECZNA ARCHITEKTURA STARTOWA ---
+
+    // Funkcja do rozpoczęcia gry, wywoływana JEDYNIE po udanej inicjalizacji audio
+    function startGame() {
         startScreen.style.display = 'none';
         canvas.style.display = 'block';
-        gameUiElements.style.display = 'block'; // Pokaż UI gry
-        resizeGame(); // Ustaw poprawny rozmiar canvas
+        gameUiElements.style.display = 'block';
+        resetGame();
+    }
 
-        // Wyświetl informację o ładowaniu na canvasie
-        ctx.fillStyle = 'white';
-        ctx.font = "30px 'Segoe UI'";
-        ctx.textAlign = 'center';
-        ctx.fillText('ŁADOWANIE DŹWIĘKÓW...', canvas.width / 2, canvas.height / 2);
+    // Funkcja, która obsługuje pierwszą interakcję użytkownika
+    function userInteractionHandler() {
+        // Usuń listenery, aby zapobiec wielokrotnemu wywołaniu
+        startScreen.removeEventListener('click', userInteractionHandler);
+        startScreen.removeEventListener('touchstart', userInteractionHandler);
 
-        // Stwórz i "obudź" AudioContext
+        // KROK 1: Stwórz AudioContext w odpowiedzi na akcję użytkownika
         if (!audioContext) {
             audioContext = new (window.AudioContext || window.webkitAudioContext)();
         }
+
+        // KROK 2: NATYCHMIAST spróbuj wznowić kontekst. To jest kluczowe.
         audioContext.resume().then(() => {
-            // Gdy kontekst jest gotowy, ładuj dźwięki
-            const soundUrls = {
-                shoot: 'assets/laser_shoot.wav',
-                lifeLost: 'assets/craaash.wav',
-                gameOver: 'assets/Ohnoo.wav',
-                superShot: 'assets/bigbomb.wav'
-            };
-            const loadPromises = Object.entries(soundUrls).map(([name, url]) =>
-                fetch(url)
-                    .then(response => response.arrayBuffer())
-                    .then(arrayBuffer => audioContext.decodeAudioData(arrayBuffer))
-                    .then(audioBuffer => { soundBuffers[name] = audioBuffer; })
-            );
-            return Promise.all(loadPromises);
-        }).then(() => {
-            // Gdy dźwięki są gotowe, uruchom grę
-            allAssetsLoaded = true;
-            resetGame();
-        }).catch(error => {
-            console.error("Błąd podczas ładowania audio:", error);
-            ctx.fillText('Błąd ładowania audio.', canvas.width / 2, canvas.height / 2 + 40);
+            console.log("AudioContext jest obudzony i gotowy.");
+            // KROK 3: Kontekst jest aktywny, teraz możemy bezpiecznie ładować zasoby
+            // Pokaż graczowi, że coś się dzieje
+            startScreen.innerHTML = '<h1>ŁADOWANIE ZASOBÓW...</h1>';
+            startScreen.style.cursor = 'default';
+
+            loadAllAssets();
+        }).catch(e => {
+            console.error("Nie można wznowić AudioContext:", e);
+            startScreen.innerHTML = '<h1>Błąd audio</h1><p>Twoja przeglądarka zablokowała dźwięk.</p>';
         });
     }
 
-    // Dodajemy listenery do przycisku startowego, który jest już w HTML
-    startScreen.addEventListener('click', initAndStartGame);
-    startScreen.addEventListener('touchstart', initAndStartGame);
-    
-    // Ładujemy tylko obrazek, a dźwięki po kliknięciu
-    shipImage.src = 'assets/ship.png';
+    // Osobna funkcja do ładowania wszystkich zasobów
+    async function loadAllAssets() {
+        // Obietnica załadowania obrazka
+        const imagePromise = new Promise((resolve, reject) => {
+            shipImage.onload = resolve;
+            shipImage.onerror = reject;
+            shipImage.src = 'assets/ship.png';
+        });
+
+        // Obietnice załadowania dźwięków
+        const soundUrls = {
+            shoot: 'assets/laser_shoot.wav',
+            lifeLost: 'assets/craaash.wav',
+            gameOver: 'assets/Ohnoo.wav',
+            superShot: 'assets/bigbomb.wav'
+        };
+        const soundPromises = Object.entries(soundUrls).map(([name, url]) =>
+            fetch(url)
+                .then(response => response.arrayBuffer())
+                .then(arrayBuffer => audioContext.decodeAudioData(arrayBuffer))
+                .then(audioBuffer => {
+                    soundBuffers[name] = audioBuffer;
+                })
+        );
+
+        // Zaczekaj na WSZYSTKO
+        try {
+            await Promise.all([imagePromise, ...soundPromises]);
+            console.log("Wszystkie zasoby załadowane.");
+            startGame(); // Dopiero teraz uruchom grę
+        } catch (error) {
+            console.error("Błąd podczas ładowania zasobów:", error);
+            startScreen.innerHTML = '<h1>Błąd ładowania zasobów.</h1><p>Sprawdź połączenie i spróbuj odświeżyć.</p>';
+        }
+    }
+
+    // --- PUNKT STARTOWY APLIKACJI ---
+    // Pokaż ekran startowy i czekaj na kliknięcie.
+    startScreen.style.display = 'flex';
+    startScreen.addEventListener('click', userInteractionHandler);
+    startScreen.addEventListener('touchstart', userInteractionHandler);
 });
