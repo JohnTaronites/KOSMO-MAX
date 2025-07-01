@@ -1,4 +1,4 @@
-/* Wersja 2.2 */
+/* Wersja 2.3 */
 * {
     margin: 0;
     padding: 0;
@@ -12,6 +12,12 @@ html, body {
     background-color: #0c0c1c;
     color: white;
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    
+    /* ZMIANA: Zapobiega domyślnym akcjom dotykowym, jak double-tap-to-zoom */
+    touch-action: manipulation;
+    -webkit-touch-callout: none; /* Zapobiega menu kontekstowemu na iOS */
+    user-select: none; /* Zapobiega zaznaczaniu tekstu */
+    -webkit-user-select: none;
 }
 
 #gameCanvas {
@@ -37,9 +43,6 @@ html, body {
     background-color: #0c0c1c;
     cursor: pointer;
     text-align: center;
-    /* ZMIANA: Dodajemy user-select, aby tekst się nie zaznaczał */
-    user-select: none;
-    -webkit-user-select: none; /* Dla starszych przeglądarek */
 }
 #startScreen h1 { font-size: 3em; }
 #startScreen p { margin-top: 20px; font-size: 1.5em; }
