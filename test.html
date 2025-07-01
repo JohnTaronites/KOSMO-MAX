@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Audio</title>
+    <style>
+        body { font-family: sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; text-align: center; }
+        button { font-size: 2em; padding: 20px; }
+        #status { margin-top: 20px; font-size: 1.2em; color: #333; font-family: monospace; }
+    </style>
+</head>
+<body>
+
+    <button id="startButton">Uruchom Audio</button>
+    <div id="status">Czekam na interakcję...</div>
+
+    <script>
+        const startButton = document.getElementById('startButton');
+        const statusDiv = document.getElementById('status');
+        let audioContext;
+
+        function log(message) {
+            console.log(message);
+            statusDiv.innerHTML = message;
+        }
+
+        // Tworzymy AudioContext od razu, ale będzie "uśpiony"
+        try {
+            audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        } catch (e) {
+            log('BŁĄD KRYTYCZNY: Twoja przeglądarka nie wspiera Web Audio API.');
+        }
+        
+
+        startButton.addEventListener('click', () => {
+            log('Przycisk kliknięty!');
+            
+            if (!audioContext) {
+                log('Błąd: AudioContext nie został stworzony.');
+                return;
+            }
+
+            log(`Stan AudioContext PRZED wznowieniem: ${audioContext.state}`);
+
+            // To jest kluczowy moment. Próbujemy "obudzić" silnik audio.
+            audioContext.resume().then(() => {
+                log(`SUKCES! Stan AudioContext PO wznowieniu: ${audioContext.state}`);
+                
+                // Jeśli się udało, próbujemy odtworzyć prosty dźwięk
+                try {
+                    const oscillator = audioContext.createOscillator();
+                    oscillator.type = 'sine';
+                    oscillator.frequency.setValueAtTime(440, audioContext.currentTime); // A4 pitch
+                    oscillator.connect(audioContext.destination);
+                    oscillator.start();
+                    oscillator.stop(audioContext.currentTime + 0.5); // Graj przez pół sekundy
+                    log('SUKCES! Dźwięk powinien być słyszalny.');
+                } catch (e) {
+                    log(`BŁĄD podczas odtwarzania dźwięku: ${e.message}`);
+                }
+
+            }).catch(error => {
+                log(`BŁĄD przy próbie wznowienia (resume): ${error.message}`);
+            });
+        });
+    </script>
+</body>
+</html>
