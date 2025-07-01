@@ -1,56 +1,8 @@
-/* Wersja 2.4 */
-* {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-}
-
-html, body {
-    width: 100%;
-    height: 100%;
-    overflow: hidden;
-    background-color: #0c0c1c;
-    color: white;
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    touch-action: manipulation;
-    -webkit-touch-callout: none;
-    user-select: none;
-    -webkit-user-select: none;
-}
-
-#gameCanvas {
-    background-color: #000;
-    background-image: 
-        radial-gradient(white, rgba(255,255,255,.2) 2px, transparent 40px),
-        radial-gradient(white, rgba(255,255,255,.15) 1px, transparent 30px);
-    background-size: 550px 550px, 350px 350px; 
-    background-position: 0 0, 40px 60px;
-    display: block;
-    position: absolute;
-    top: 0;
-    left: 0;
-}
-
-#startScreen {
-    width: 100%;
-    height: 100%;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    background-color: #0c0c1c;
-    cursor: pointer;
-    text-align: center;
-}
+/* Wersja 3.1 */
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { width: 100%; height: 100%; overflow: hidden; background-color: #0c0c1c; color: white; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; touch-action: manipulation; -webkit-touch-callout: none; user-select: none; -webkit-user-select: none; }
+#gameCanvas { background-color: #000; background-image: radial-gradient(white, rgba(255,255,255,.2) 2px, transparent 40px), radial-gradient(white, rgba(255,255,255,.15) 1px, transparent 30px); background-size: 550px 550px, 350px 350px; background-position: 0 0, 40px 60px; display: block; position: absolute; top: 0; left: 0; }
+#startScreen { width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; background-color: #0c0c1c; cursor: pointer; text-align: center; }
 #startScreen h1 { font-size: 3em; }
 #startScreen p { margin-top: 20px; font-size: 1.5em; }
-
-#version-display {
-    position: absolute;
-    bottom: 5px;
-    right: 10px;
-    font-size: 12px;
-    font-family: monospace;
-    color: #444;
-    pointer-events: none;
-}
+#version-display { position: absolute; bottom: 5px; right: 10px; font-size: 12px; font-family: monospace; color: #444; pointer-events: none; }
