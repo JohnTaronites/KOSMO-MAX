@@ -1,11 +1,12 @@
-// Wersja 2.3
+// Wersja 2.4
 window.addEventListener('load', function() {
     // --- GŁÓWNE ZMIENNE I KONFIGURACJA ---
-    const version = '2.3';
+    const version = '2.4';
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
     const startScreen = document.getElementById('startScreen');
     const versionDisplay = document.getElementById('version-display');
+    const unlockVideo = document.getElementById('unlockVideo'); // Nowy element wideo
     versionDisplay.innerText = `v${version}`;
 
     // --- TWORZENIE ELEMENTÓW INTERFEJSU (UI) ---
@@ -15,13 +16,16 @@ window.addEventListener('load', function() {
     gameUiContainer.style.top = '0';
     gameUiContainer.style.left = '0';
     gameUiContainer.style.width = '100%';
-    gameUiContainer.style.padding = '10px 20px';
-    gameUiContainer.style.pointerEvents = 'none';
+    gameUiContainer.style.height = '100%'; // Rozciągnij kontener na cały ekran
+    gameUiContainer.style.pointerEvents = 'none'; // Kontener jest przezroczysty dla kliknięć
     
     const topBar = document.createElement('div');
     topBar.style.display = 'flex';
     topBar.style.justifyContent = 'space-between';
     topBar.style.alignItems = 'center';
+    topBar.style.padding = '10px 20px';
+    topBar.style.userSelect = 'none';
+    topBar.style.webkitUserSelect = 'none';
     
     const statsContainer = document.createElement('div');
     statsContainer.style.color = 'white';
@@ -39,15 +43,26 @@ window.addEventListener('load', function() {
     muteBtn.style.width = '40px'; muteBtn.style.height = '40px'; muteBtn.style.fontSize = '24px';
     muteBtn.style.background = 'rgba(255, 255, 255, 0.2)'; muteBtn.style.border = '1px solid white';
     muteBtn.style.color = 'white'; muteBtn.style.borderRadius = '50%'; muteBtn.style.cursor = 'pointer';
-    muteBtn.style.pointerEvents = 'auto';
+    muteBtn.style.pointerEvents = 'auto'; // Przycisk ma być klikalny
 
     topBar.appendChild(statsContainer);
     topBar.appendChild(muteBtn);
 
+    // ZMIANA: Przycisk jest teraz w głównym kontenerze, a nie w topBar
     const superShotBtn = document.createElement('button');
-    superShotBtn.innerText = 'SUPER STRZAŁ'; superShotBtn.style.position = 'absolute'; superShotBtn.style.left = '50%'; superShotBtn.style.transform = 'translateX(-50%)'; superShotBtn.style.bottom = '20px'; superShotBtn.style.padding = '10px 20px'; superShotBtn.style.fontSize = '1em'; superShotBtn.style.backgroundColor = '#ff4500'; superShotBtn.style.color = 'white'; superShotBtn.style.border = '2px solid #ff8c00'; superShotBtn.style.borderRadius = '5px'; superShotBtn.style.cursor = 'pointer';
-    // ZMIANA: Naprawia niedziałający przycisk
-    superShotBtn.style.pointerEvents = 'auto';
+    superShotBtn.innerText = 'SUPER STRZAŁ';
+    superShotBtn.style.position = 'absolute';
+    superShotBtn.style.left = '50%';
+    superShotBtn.style.transform = 'translateX(-50%)';
+    superShotBtn.style.bottom = '20px';
+    superShotBtn.style.padding = '10px 20px';
+    superShotBtn.style.fontSize = '1em';
+    superShotBtn.style.backgroundColor = '#ff4500';
+    superShotBtn.style.color = 'white';
+    superShotBtn.style.border = '2px solid #ff8c00';
+    superShotBtn.style.borderRadius = '5px';
+    superShotBtn.style.cursor = 'pointer';
+    superShotBtn.style.pointerEvents = 'auto'; // Upewniamy się, że jest klikalny
 
     const gameOverScreen = document.createElement('div');
     gameOverScreen.style.position = 'absolute'; gameOverScreen.style.width = '100%'; gameOverScreen.style.height = '100%'; gameOverScreen.style.display = 'none'; gameOverScreen.style.flexDirection = 'column'; gameOverScreen.style.justifyContent = 'center'; gameOverScreen.style.alignItems = 'center'; gameOverScreen.style.backgroundColor = 'rgba(0,0,0,0.75)'; gameOverScreen.style.textAlign = 'center';
@@ -72,10 +87,6 @@ window.addEventListener('load', function() {
     let audioUnlocked = false;
     let isMuted = true;
     
-    // ZMIANA: Cichy dźwięk do odblokowania trybu 'playback'
-    const silentUnlockAudio = new Audio("data:audio/mp3;base64,SUQzBAAAAAABEVRYWFgAAAAtAAADY29tbWVudABCaWdTb3VuZEJhbmsuY29tIC8gTGFTb25vdGhlcXVlLm9yZwBURU5DAAAAHQAAA1N3aXRjaCBQbHVzIMKpIE5DSCBTb2Z0d2FyZQCATWRpYWZpbGUuY29tEEEEAABhAAAHAQAAACw=");
-    silentUnlockAudio.loop = true;
-
     function playSound(name) { if (isMuted) return; const buffer = soundBuffers[name]; if (!audioContext || !buffer || audioContext.state !== 'running') return; const source = audioContext.createBufferSource(); source.buffer = buffer; source.connect(audioContext.destination); source.start(0); }
     
     // --- ZMIENNE STANU GRY ---
@@ -117,10 +128,8 @@ window.addEventListener('load', function() {
     function updateMuteButton() {
         if (isMuted) {
             muteBtn.innerHTML = '🔇';
-            muteBtn.style.borderColor = '#888';
         } else {
             muteBtn.innerHTML = '🔊';
-            muteBtn.style.borderColor = 'white';
         }
     }
 
@@ -132,39 +141,17 @@ window.addEventListener('load', function() {
             return;
         }
         
+        // Ta funkcja jest teraz wywoływana tylko raz
         if (audioContext && audioContext.state === 'running') {
             audioUnlocked = true;
             isMuted = false;
             playSound('letsgo');
             updateMuteButton();
-            return;
         }
-
-        // Pierwsze kliknięcie - próba odblokowania
-        if (!audioContext) {
-            audioContext = new (window.AudioContext || window.webkitAudioContext)();
-        }
-
-        audioContext.resume().then(() => {
-            console.log("AudioContext wznowiony pomyślnie.");
-            if ('audioSession' in navigator) {
-                navigator.audioSession.type = 'playback';
-            }
-            silentUnlockAudio.play().catch(() => {}); // Odtwórz cichy dźwięk w pętli
-            
-            audioUnlocked = true;
-            isMuted = false;
-            updateMuteButton();
-            playSound('letsgo');
-
-        }).catch(e => {
-            console.error("Nie udało się wznowić AudioContext:", e);
-            alert("Twoja przeglądarka zablokowała dźwięk. Sprawdź ustawienia strony lub wyłącz tryb cichy.");
-        });
     }
 
-    // Uruchamia grę po kliknięciu "Start"
-    async function initAndStartGame() {
+    // Startuje grę i inicjuje ładowanie zasobów
+    function initAndStartGame() {
         startScreen.removeEventListener('click', initAndStartGame);
         startScreen.removeEventListener('touchstart', initAndStartGame);
         
@@ -178,37 +165,50 @@ window.addEventListener('load', function() {
         ctx.fillStyle = 'white';
         ctx.font = "30px 'Segoe UI'";
         ctx.textAlign = 'center';
-        ctx.fillText('ŁADOWANIE ZASOBÓW...', canvas.width / 2, canvas.height / 2);
+        ctx.fillText('ŁADOWANIE...', canvas.width / 2, canvas.height / 2);
+        
+        // ZMIANA: Odtwarzanie cichego wideo, aby oszukać tryb cichy na iOS
+        unlockVideo.play().catch(()=>{});
+
+        // Tworzymy kontekst audio i próbujemy go wznowić
+        if (!audioContext) {
+            audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        audioContext.resume().then(() => {
+            loadAllAssets();
+        }).catch(e => {
+            console.warn("Nie można było wznowić AudioContext, ładowanie mimo to.", e);
+            loadAllAssets(); // Kontynuuj nawet jeśli resume zawiedzie
+        });
+    }
+
+    // Ładuje wszystkie zasoby
+    async function loadAllAssets() {
+        const imagePromise = new Promise((resolve, reject) => {
+            shipImage.onload = resolve;
+            shipImage.onerror = reject;
+            shipImage.src = 'assets/ship.png';
+        });
+
+        const soundUrls = {
+            shoot: 'assets/laser_shoot.wav', lifeLost: 'assets/craaash.wav',
+            gameOver: 'assets/Ohnoo.wav', superShot: 'assets/bigbomb.wav',
+            letsgo: 'assets/letsgo.wav'
+        };
+        const soundPromises = Object.entries(soundUrls).map(([name, url]) =>
+            fetch(url)
+                .then(response => response.arrayBuffer())
+                .then(arrayBuffer => audioContext.decodeAudioData(arrayBuffer))
+                .then(audioBuffer => { soundBuffers[name] = audioBuffer; })
+        );
 
         try {
-            const imagePromise = new Promise((resolve, reject) => {
-                shipImage.onload = () => resolve();
-                shipImage.onerror = () => reject(new Error('Błąd ładowania obrazka.'));
-                shipImage.src = 'assets/ship.png';
-            });
-            
-            if (!audioContext) {
-                audioContext = new (window.AudioContext || window.webkitAudioContext)();
-            }
-
-            const soundUrls = {
-                shoot: 'assets/laser_shoot.wav', lifeLost: 'assets/craaash.wav',
-                gameOver: 'assets/Ohnoo.wav', superShot: 'assets/bigbomb.wav',
-                letsgo: 'assets/letsgo.wav'
-            };
-            const soundPromises = Object.entries(soundUrls).map(([name, url]) =>
-                fetch(url)
-                    .then(response => response.arrayBuffer())
-                    .then(arrayBuffer => audioContext.decodeAudioData(arrayBuffer))
-                    .then(audioBuffer => { soundBuffers[name] = audioBuffer; })
-            );
-
             await Promise.all([imagePromise, ...soundPromises]);
             resetGame();
-        } catch (error) {
-            console.error("Błąd ładowania zasobów:", error);
-            ctx.clearRect(0,0,canvas.width, canvas.height);
-            ctx.fillText('Błąd ładowania zasobów.', canvas.width / 2, canvas.height / 2);
+        } catch(error) {
+            console.error("Błąd podczas ładowania zasobów:", error);
+            // Nadal uruchom grę, nawet jeśli zasoby zawiodły
+            resetGame();
         }
     }
 
