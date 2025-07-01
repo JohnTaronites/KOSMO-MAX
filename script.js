@@ -1,7 +1,7 @@
-// Wersja 2.2
+// Wersja 2.3
 window.addEventListener('load', function() {
     // --- GŁÓWNE ZMIENNE I KONFIGURACJA ---
-    const version = '2.2';
+    const version = '2.3';
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
     const startScreen = document.getElementById('startScreen');
@@ -10,24 +10,19 @@ window.addEventListener('load', function() {
 
     // --- TWORZENIE ELEMENTÓW INTERFEJSU (UI) ---
     const gameUiContainer = document.createElement('div');
-    gameUiContainer.style.display = 'none'; // Pokazywany razem z grą
+    gameUiContainer.style.display = 'none';
     gameUiContainer.style.position = 'absolute';
     gameUiContainer.style.top = '0';
     gameUiContainer.style.left = '0';
     gameUiContainer.style.width = '100%';
     gameUiContainer.style.padding = '10px 20px';
-    gameUiContainer.style.pointerEvents = 'none'; // Główny kontener ignoruje kliknięcia
-    // ZMIANA: Dodajemy user-select, by zapobiec zaznaczaniu tekstu
-    gameUiContainer.style.userSelect = 'none';
-    gameUiContainer.style.webkitUserSelect = 'none';
+    gameUiContainer.style.pointerEvents = 'none';
     
-    // Top Bar (Wynik, Poziom, Życia, Przycisk Mute)
     const topBar = document.createElement('div');
     topBar.style.display = 'flex';
     topBar.style.justifyContent = 'space-between';
     topBar.style.alignItems = 'center';
     
-    // Lewa strona Top Bar (Wynik, Poziom, Życia)
     const statsContainer = document.createElement('div');
     statsContainer.style.color = 'white';
     statsContainer.style.fontFamily = 'Segoe UI, Tahoma, sans-serif';
@@ -40,20 +35,19 @@ window.addEventListener('load', function() {
     statsContainer.appendChild(levelEl);
     statsContainer.appendChild(livesEl);
 
-    // Prawa strona Top Bar (Przycisk Mute)
     const muteBtn = document.createElement('button');
     muteBtn.style.width = '40px'; muteBtn.style.height = '40px'; muteBtn.style.fontSize = '24px';
     muteBtn.style.background = 'rgba(255, 255, 255, 0.2)'; muteBtn.style.border = '1px solid white';
     muteBtn.style.color = 'white'; muteBtn.style.borderRadius = '50%'; muteBtn.style.cursor = 'pointer';
-    muteBtn.style.pointerEvents = 'auto'; // Ten przycisk ma być klikalny
-    muteBtn.style.userSelect = 'none'; muteBtn.style.webkitUserSelect = 'none';
+    muteBtn.style.pointerEvents = 'auto';
 
     topBar.appendChild(statsContainer);
     topBar.appendChild(muteBtn);
 
-    // Dolny przycisk Super Strzału
     const superShotBtn = document.createElement('button');
     superShotBtn.innerText = 'SUPER STRZAŁ'; superShotBtn.style.position = 'absolute'; superShotBtn.style.left = '50%'; superShotBtn.style.transform = 'translateX(-50%)'; superShotBtn.style.bottom = '20px'; superShotBtn.style.padding = '10px 20px'; superShotBtn.style.fontSize = '1em'; superShotBtn.style.backgroundColor = '#ff4500'; superShotBtn.style.color = 'white'; superShotBtn.style.border = '2px solid #ff8c00'; superShotBtn.style.borderRadius = '5px'; superShotBtn.style.cursor = 'pointer';
+    // ZMIANA: Naprawia niedziałający przycisk
+    superShotBtn.style.pointerEvents = 'auto';
 
     const gameOverScreen = document.createElement('div');
     gameOverScreen.style.position = 'absolute'; gameOverScreen.style.width = '100%'; gameOverScreen.style.height = '100%'; gameOverScreen.style.display = 'none'; gameOverScreen.style.flexDirection = 'column'; gameOverScreen.style.justifyContent = 'center'; gameOverScreen.style.alignItems = 'center'; gameOverScreen.style.backgroundColor = 'rgba(0,0,0,0.75)'; gameOverScreen.style.textAlign = 'center';
@@ -78,6 +72,10 @@ window.addEventListener('load', function() {
     let audioUnlocked = false;
     let isMuted = true;
     
+    // ZMIANA: Cichy dźwięk do odblokowania trybu 'playback'
+    const silentUnlockAudio = new Audio("data:audio/mp3;base64,SUQzBAAAAAABEVRYWFgAAAAtAAADY29tbWVudABCaWdTb3VuZEJhbmsuY29tIC8gTGFTb25vdGhlcXVlLm9yZwBURU5DAAAAHQAAA1N3aXRjaCBQbHVzIMKpIE5DSCBTb2Z0d2FyZQCATWRpYWZpbGUuY29tEEEEAABhAAAHAQAAACw=");
+    silentUnlockAudio.loop = true;
+
     function playSound(name) { if (isMuted) return; const buffer = soundBuffers[name]; if (!audioContext || !buffer || audioContext.state !== 'running') return; const source = audioContext.createBufferSource(); source.buffer = buffer; source.connect(audioContext.destination); source.start(0); }
     
     // --- ZMIENNE STANU GRY ---
@@ -113,44 +111,8 @@ window.addEventListener('load', function() {
     function animate(timestamp) { if (!lastTime) lastTime = timestamp; const deltaTime = (timestamp - lastTime) / 1000; lastTime = timestamp; ctx.clearRect(0, 0, canvas.width, canvas.height); if (player) { player.update(input.x); player.draw(ctx); } handleGameElements(deltaTime); checkGameState(); updateUI(); checkLevelUp(); if (gameOver) { if (gameOverScreen.style.display !== 'flex') { playSound('gameOver'); setTimeout(() => { gameOverScreen.style.display = 'flex'; finalScoreEl.innerText = score; }, 500); } } else { animationFrameId = requestAnimationFrame(animate); } }
     function resetGame() { if (animationFrameId) cancelAnimationFrame(animationFrameId); score = 0; lives = 3; missedEnemies = 0; gameOver = false; bullets = []; enemies = []; currentLevel = 1; enemyBaseSpeed = 100; enemySpeedMultiplier = 1.0; baseEnemyInterval = 1000; enemySpawnMultiplier = 1.0; enemySpawnTimer = 0; maxSuperShotCharges = 2; superShotCharges = maxSuperShotCharges; gameOverScreen.style.display = 'none'; resizeGame(); player = new Player(); input.x = canvas.width / 2; lastTime = 0; updateUI(); animate(0); }
 
-    // --- ZMIANA: NOWA, OSTATECZNA ARCHITEKTURA STARTOWA ---
+    // --- NOWA, ULEPSZONA LOGIKA STARTOWA ---
 
-    // Funkcja do aktywacji audio (i tylko tego!)
-    function handleAudioUnlock() {
-        if (audioUnlocked) {
-            isMuted = !isMuted;
-            updateMuteButton();
-            return;
-        }
-        
-        if (!audioContext) {
-            audioContext = new (window.AudioContext || window.webkitAudioContext)();
-        }
-
-        if (audioContext.state === 'suspended') {
-            audioContext.resume().then(() => {
-                console.log("AudioContext wznowiony pomyślnie.");
-                audioUnlocked = true;
-                isMuted = false;
-                updateMuteButton();
-                playSound('letsgo');
-                
-                // ZMIANA: Dodajemy ustawienie sesji audio DOKŁADNIE tutaj
-                if ('audioSession' in navigator) {
-                    navigator.audioSession.type = 'playback';
-                }
-            }).catch(e => {
-                console.error("Nie udało się wznowić AudioContext:", e);
-                alert("Twoja przeglądarka zablokowała automatyczne odtwarzanie dźwięku. Może być konieczne odblokowanie go w ustawieniach przeglądarki.");
-            });
-        } else {
-            // Kontekst już był aktywny
-            audioUnlocked = true;
-            isMuted = false;
-            updateMuteButton();
-        }
-    }
-    
     // Aktualizuje wygląd przycisku wyciszenia
     function updateMuteButton() {
         if (isMuted) {
@@ -161,27 +123,63 @@ window.addEventListener('load', function() {
             muteBtn.style.borderColor = 'white';
         }
     }
-    
-    // Startuje grę (bez audio)
-    function initAndStartGame() {
+
+    // Odblokowuje i zarządza dźwiękiem
+    function handleAudioUnlock() {
+        if (audioUnlocked) {
+            isMuted = !isMuted;
+            updateMuteButton();
+            return;
+        }
+        
+        if (audioContext && audioContext.state === 'running') {
+            audioUnlocked = true;
+            isMuted = false;
+            playSound('letsgo');
+            updateMuteButton();
+            return;
+        }
+
+        // Pierwsze kliknięcie - próba odblokowania
+        if (!audioContext) {
+            audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        }
+
+        audioContext.resume().then(() => {
+            console.log("AudioContext wznowiony pomyślnie.");
+            if ('audioSession' in navigator) {
+                navigator.audioSession.type = 'playback';
+            }
+            silentUnlockAudio.play().catch(() => {}); // Odtwórz cichy dźwięk w pętli
+            
+            audioUnlocked = true;
+            isMuted = false;
+            updateMuteButton();
+            playSound('letsgo');
+
+        }).catch(e => {
+            console.error("Nie udało się wznowić AudioContext:", e);
+            alert("Twoja przeglądarka zablokowała dźwięk. Sprawdź ustawienia strony lub wyłącz tryb cichy.");
+        });
+    }
+
+    // Uruchamia grę po kliknięciu "Start"
+    async function initAndStartGame() {
         startScreen.removeEventListener('click', initAndStartGame);
         startScreen.removeEventListener('touchstart', initAndStartGame);
+        
         startScreen.style.display = 'none';
         canvas.style.display = 'block';
         gameUiContainer.style.display = 'block';
         muteBtn.style.display = 'block';
         updateMuteButton();
         resizeGame();
-        loadAllAssets();
-    }
-    
-    // Ładuje wszystkie zasoby
-    async function loadAllAssets() {
+
         ctx.fillStyle = 'white';
         ctx.font = "30px 'Segoe UI'";
         ctx.textAlign = 'center';
         ctx.fillText('ŁADOWANIE ZASOBÓW...', canvas.width / 2, canvas.height / 2);
-        
+
         try {
             const imagePromise = new Promise((resolve, reject) => {
                 shipImage.onload = () => resolve();
@@ -189,7 +187,6 @@ window.addEventListener('load', function() {
                 shipImage.src = 'assets/ship.png';
             });
             
-            // Tworzymy kontekst w tle (jeśli jeszcze nie istnieje)
             if (!audioContext) {
                 audioContext = new (window.AudioContext || window.webkitAudioContext)();
             }
@@ -209,7 +206,7 @@ window.addEventListener('load', function() {
             await Promise.all([imagePromise, ...soundPromises]);
             resetGame();
         } catch (error) {
-            console.error("Błąd podczas ładowania zasobów:", error);
+            console.error("Błąd ładowania zasobów:", error);
             ctx.clearRect(0,0,canvas.width, canvas.height);
             ctx.fillText('Błąd ładowania zasobów.', canvas.width / 2, canvas.height / 2);
         }
