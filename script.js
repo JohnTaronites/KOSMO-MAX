@@ -1,34 +1,26 @@
-// Wersja 1.0
+// Wersja 1.1
 window.addEventListener('load', function() {
     // --- GŁÓWNE ZMIENNE I KONFIGURACJA ---
-    const version = '1.0';
+    const version = '1.1';
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
     const startScreen = document.getElementById('startScreen');
     const versionDisplay = document.getElementById('version-display');
 
     // Ustawienie początkowego rozmiaru i wyświetlenie wersji
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
     versionDisplay.innerText = `v${version}`;
 
     // --- TWORZENIE ELEMENTÓW INTERFEJSU (UI) ---
     const gameUiElements = document.createElement('div');
-    gameUiElements.style.display = 'none'; // UI jest pokazywane razem z grą
-    
-    // Kontener na Wynik, Poziom, Życia
+    gameUiElements.style.display = 'none';
     const uiContainer = document.createElement('div');
     uiContainer.style.position = 'absolute'; uiContainer.style.left = '0'; uiContainer.style.top = '0'; uiContainer.style.width = '100%'; uiContainer.style.display = 'flex'; uiContainer.style.justifyContent = 'space-between'; uiContainer.style.padding = '10px 20px'; uiContainer.style.color = 'white'; uiContainer.style.fontFamily = 'Segoe UI, Tahoma, sans-serif'; uiContainer.style.fontSize = '20px'; uiContainer.style.textShadow = '2px 2px 4px #000'; uiContainer.style.pointerEvents = 'none';
     const scoreEl = document.createElement('div');
     const levelEl = document.createElement('div');
     const livesEl = document.createElement('div');
     uiContainer.appendChild(scoreEl); uiContainer.appendChild(levelEl); uiContainer.appendChild(livesEl);
-    
-    // Przycisk Super Strzału
     const superShotBtn = document.createElement('button');
     superShotBtn.innerText = 'SUPER STRZAŁ'; superShotBtn.style.position = 'absolute'; superShotBtn.style.left = '50%'; superShotBtn.style.transform = 'translateX(-50%)'; superShotBtn.style.bottom = '20px'; superShotBtn.style.padding = '10px 20px'; superShotBtn.style.fontSize = '1em'; superShotBtn.style.backgroundColor = '#ff4500'; superShotBtn.style.color = 'white'; superShotBtn.style.border = '2px solid #ff8c00'; superShotBtn.style.borderRadius = '5px'; superShotBtn.style.cursor = 'pointer';
-    
-    // Ekran końca gry
     const gameOverScreen = document.createElement('div');
     gameOverScreen.style.position = 'absolute'; gameOverScreen.style.width = '100%'; gameOverScreen.style.height = '100%'; gameOverScreen.style.display = 'none'; gameOverScreen.style.flexDirection = 'column'; gameOverScreen.style.justifyContent = 'center'; gameOverScreen.style.alignItems = 'center'; gameOverScreen.style.backgroundColor = 'rgba(0,0,0,0.75)'; gameOverScreen.style.textAlign = 'center';
     const gameOverTitle = document.createElement('h1');
@@ -39,8 +31,6 @@ window.addEventListener('load', function() {
     finalScoreText.appendChild(finalScoreEl);
     const newGameBtn = document.createElement('button');
     newGameBtn.innerText = 'NOWA GRA'; newGameBtn.style.marginTop = '30px'; newGameBtn.style.padding = '15px 30px'; newGameBtn.style.fontSize = '1.2em'; newGameBtn.style.cursor = 'pointer'; newGameBtn.style.backgroundColor = '#4CAF50'; newGameBtn.style.color = 'white'; newGameBtn.style.border = 'none'; newGameBtn.style.borderRadius = '5px';
-    
-    // Dodanie elementów do odpowiednich kontenerów
     gameOverScreen.appendChild(gameOverTitle); gameOverScreen.appendChild(finalScoreText); gameOverScreen.appendChild(newGameBtn);
     gameUiElements.appendChild(uiContainer); gameUiElements.appendChild(superShotBtn);
     document.body.appendChild(gameUiElements); document.body.appendChild(gameOverScreen);
@@ -49,18 +39,8 @@ window.addEventListener('load', function() {
     const shipImage = new Image();
     let audioContext;
     let soundBuffers = {}; 
-    let allAssetsLoaded = false;
     
-    // Funkcja do odtwarzania dźwięków przez Web Audio API
-    function playSound(name) { 
-        if (!allAssetsLoaded) return;
-        const buffer = soundBuffers[name]; 
-        if (!audioContext || !buffer || audioContext.state !== 'running') return; 
-        const source = audioContext.createBufferSource(); 
-        source.buffer = buffer; 
-        source.connect(audioContext.destination); 
-        source.start(0); 
-    }
+    function playSound(name) { const buffer = soundBuffers[name]; if (!audioContext || !buffer || audioContext.state !== 'running') return; const source = audioContext.createBufferSource(); source.buffer = buffer; source.connect(audioContext.destination); source.start(0); }
     
     // --- ZMIENNE STANU GRY ---
     let score, lives, missedEnemies, gameOver, animationFrameId, lastTime = 0;
@@ -70,212 +50,39 @@ window.addEventListener('load', function() {
     let superShotCharges, maxSuperShotCharges;
 
     // --- KLASY OBIEKTÓW GRY ---
-    class Player { 
-        constructor() { this.width = 50; this.height = 40; this.x = canvas.width / 2 - this.width / 2; this.bottomLimit = 100; this.y = canvas.height - this.height - this.bottomLimit; } 
-        draw(context) { context.drawImage(shipImage, this.x, this.y, this.width, this.height); } 
-        update(inputX) { if (inputX !== null) { this.x = inputX - this.width / 2; } if (this.x < 0) this.x = 0; if (this.x > canvas.width - this.width) this.x = canvas.width - this.width; } 
-    }
-    class Bullet { 
-        constructor(x, y, color = 'white', speed = 500, angle = 0) { this.x = x; this.y = y; this.width = 5; this.height = 15; this.color = color; this.speedX = Math.sin(angle) * speed; this.speedY = -Math.cos(angle) * speed; this.markedForDeletion = false; } 
-        update(deltaTime) { this.x += this.speedX * deltaTime; this.y += this.speedY * deltaTime; if (this.y < 0) this.markedForDeletion = true; } 
-        draw(context) { context.fillStyle = this.color; context.fillRect(this.x, this.y, this.width, this.height); } 
-    }
-    class Enemy { 
-        constructor() { this.width = 50; this.height = 45; this.x = Math.random() * (canvas.width - this.width); this.y = -this.height; this.speed = (Math.random() * 100 + enemyBaseSpeed) * enemySpeedMultiplier; this.markedForDeletion = false; } 
-        draw(context) { context.drawImage(shipImage, this.x, this.y, this.width, this.height); } 
-        update(deltaTime) { this.y += this.speed * deltaTime; if (this.y > canvas.height) { this.markedForDeletion = true; missedEnemies++; } } 
-    }
+    class Player { constructor() { this.width = 50; this.height = 40; this.x = canvas.width / 2 - this.width / 2; this.bottomLimit = 100; this.y = canvas.height - this.height - this.bottomLimit; } draw(context) { context.drawImage(shipImage, this.x, this.y, this.width, this.height); } update(inputX) { if (inputX !== null) { this.x = inputX - this.width / 2; } if (this.x < 0) this.x = 0; if (this.x > canvas.width - this.width) this.x = canvas.width - this.width; } }
+    class Bullet { constructor(x, y, color = 'white', speed = 500, angle = 0) { this.x = x; this.y = y; this.width = 5; this.height = 15; this.color = color; this.speedX = Math.sin(angle) * speed; this.speedY = -Math.cos(angle) * speed; this.markedForDeletion = false; } update(deltaTime) { this.x += this.speedX * deltaTime; this.y += this.speedY * deltaTime; if (this.y < 0) this.markedForDeletion = true; } draw(context) { context.fillStyle = this.color; context.fillRect(this.x, this.y, this.width, this.height); } }
+    class Enemy { constructor() { this.width = 50; this.height = 45; this.x = Math.random() * (canvas.width - this.width); this.y = -this.height; this.speed = (Math.random() * 100 + enemyBaseSpeed) * enemySpeedMultiplier; this.markedForDeletion = false; } draw(context) { context.drawImage(shipImage, this.x, this.y, this.width, this.height); } update(deltaTime) { this.y += this.speed * deltaTime; if (this.y > canvas.height) { this.markedForDeletion = true; missedEnemies++; } } }
 
     // --- GŁÓWNA LOGIKA GRY ---
-    
-    // Dopasowuje rozmiar canvas do okna przeglądarki
-    function resizeGame() { 
-        canvas.width = window.innerWidth; 
-        canvas.height = window.innerHeight; 
-        if (player) { 
-            player.x = Math.max(0, Math.min(player.x, canvas.width - player.width)); 
-            player.y = canvas.height - player.height - player.bottomLimit; 
-        } 
-    }
+    function resizeGame() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; if (player) { player.x = Math.max(0, Math.min(player.x, canvas.width - player.width)); player.y = canvas.height - player.height - player.bottomLimit; } }
     window.addEventListener('resize', resizeGame);
-    
-    // Obsługa sterowania (mysz i dotyk)
     const input = { x: canvas.width / 2 };
     function getPointerPos(evt) { const rect = canvas.getBoundingClientRect(); const touch = evt.touches ? evt.touches[0] : evt; return (touch.clientX - rect.left); }
     window.addEventListener('mousemove', e => { if (player) input.x = getPointerPos(e) });
     window.addEventListener('touchmove', e => { if (player) { e.preventDefault(); input.x = getPointerPos(e) }}, { passive: false });
-    
-    // Listenery dla przycisków
     canvas.addEventListener('click', () => { if (!gameOver && player) shootTriple() });
     newGameBtn.addEventListener('click', resetGame);
     superShotBtn.addEventListener('click', () => { if (!gameOver && player && superShotCharges > 0) { shootSuper(); }});
+    function updateSuperShotUI() { superShotBtn.innerText = `SUPER STRZAŁ (${superShotCharges})`; superShotBtn.disabled = superShotCharges <= 0; }
+    function shootTriple() { playSound('shoot'); const bulletX = player.x + player.width / 2 - 2.5; if (currentLevel < 3) { setTimeout(() => { if (!gameOver) bullets.push(new Bullet(bulletX, player.y)) }, 0); setTimeout(() => { if (!gameOver) bullets.push(new Bullet(bulletX, player.y)) }, 100); setTimeout(() => { if (!gameOver) bullets.push(new Bullet(bulletX, player.y)) }, 200); } else { const spreadAngle = 0.15; bullets.push(new Bullet(bulletX, player.y, 'white', 500, 0)); bullets.push(new Bullet(bulletX, player.y, 'white', 500, -spreadAngle)); bullets.push(new Bullet(bulletX, player.y, 'white', 500, spreadAngle)); } }
+    function shootSuper() { playSound('superShot'); superShotCharges--; updateSuperShotUI(); const bulletCount = 30; for (let i = 0; i < bulletCount; i++) { const angle = (Math.PI * 2 / bulletCount) * i; bullets.push(new Bullet(player.x + player.width / 2, player.y + player.height / 2, 'red', 300, angle)); } }
+    function handleGameElements(deltaTime) { const currentEnemyInterval = baseEnemyInterval / enemySpawnMultiplier; if (enemySpawnTimer > currentEnemyInterval) { enemies.push(new Enemy()); enemySpawnTimer = 0; } else { enemySpawnTimer += deltaTime * 1000; } bullets.forEach(bullet => bullet.update(deltaTime)); enemies.forEach(enemy => enemy.update(deltaTime)); for (let i = bullets.length - 1; i >= 0; i--) { for (let j = enemies.length - 1; j >= 0; j--) { if (bullets[i] && enemies[j] && checkCollision(bullets[i], enemies[j])) { bullets[i].markedForDeletion = true; enemies[j].markedForDeletion = true; score += 10; } } } bullets = bullets.filter(bullet => !bullet.markedForDeletion); enemies = enemies.filter(enemy => !enemy.markedForDeletion); bullets.forEach(bullet => bullet.draw(ctx)); enemies.forEach(enemy => enemy.draw(ctx)); }
+    function checkCollision(rect1, rect2) { return (rect1.x < rect2.x + rect2.width && rect1.x + rect1.width > rect2.x && rect1.y < rect2.y + rect2.height && rect1.y + rect1.height > rect2.y); }
+    function checkGameState() { if (missedEnemies >= 3) { lives--; missedEnemies = 0; if (lives > 0) { playSound('lifeLost'); } } if (lives <= 0 && !gameOver) { gameOver = true; } }
+    function updateUI() { scoreEl.innerHTML = `WYNIK: ${score}`; levelEl.innerHTML = `POZIOM: ${currentLevel}`; livesEl.innerHTML = `ŻYCIA: ${lives}`; updateSuperShotUI(); }
+    function showLevelUpMessage(level) { const levelUpEl = document.createElement('div'); levelUpEl.innerText = `LEVEL ${level}`; levelUpEl.style.position = 'absolute'; levelUpEl.style.left = '50%'; levelUpEl.style.top = '50%'; levelUpEl.style.transform = 'translate(-50%, -50%)'; levelUpEl.style.color = '#6c6cff'; levelUpEl.style.fontSize = '5em'; levelUpEl.style.textShadow = '3px 3px 6px #000'; levelUpEl.style.opacity = '1'; levelUpEl.style.transition = 'opacity 1s ease-out'; document.body.appendChild(levelUpEl); setTimeout(() => { levelUpEl.style.opacity = '0'; setTimeout(() => { document.body.removeChild(levelUpEl); }, 1000); }, 1500); }
+    function levelUp(newLevel) { currentLevel = newLevel; showLevelUpMessage(currentLevel); enemySpeedMultiplier *= 1.2; enemySpawnMultiplier *= 1.2; if (currentLevel === 3) { maxSuperShotCharges = 3; } superShotCharges = maxSuperShotCharges; }
+    function checkLevelUp() { if (currentLevel === 1 && score >= 200) { levelUp(2); } else if (currentLevel === 2 && score >= 500) { levelUp(3); } }
+    function animate(timestamp) { if (!lastTime) lastTime = timestamp; const deltaTime = (timestamp - lastTime) / 1000; lastTime = timestamp; ctx.clearRect(0, 0, canvas.width, canvas.height); if (player) { player.update(input.x); player.draw(ctx); } handleGameElements(deltaTime); checkGameState(); updateUI(); checkLevelUp(); if (gameOver) { if (gameOverScreen.style.display !== 'flex') { playSound('gameOver'); setTimeout(() => { gameOverScreen.style.display = 'flex'; finalScoreEl.innerText = score; }, 500); } } else { animationFrameId = requestAnimationFrame(animate); } }
     
-    // Aktualizuje wygląd przycisku super strzału
-    function updateSuperShotUI() { 
-        superShotBtn.innerText = `SUPER STRZAŁ (${superShotCharges})`; 
-        superShotBtn.disabled = superShotCharges <= 0; 
-    }
-    
-    // Logika zwykłego potrójnego strzału (zmienia się na Lvl 3)
-    function shootTriple() { 
-        playSound('shoot'); 
-        const bulletX = player.x + player.width / 2 - 2.5; 
-        if (currentLevel < 3) { 
-            setTimeout(() => { if (!gameOver) bullets.push(new Bullet(bulletX, player.y)) }, 0); 
-            setTimeout(() => { if (!gameOver) bullets.push(new Bullet(bulletX, player.y)) }, 100); 
-            setTimeout(() => { if (!gameOver) bullets.push(new Bullet(bulletX, player.y)) }, 200); 
-        } else { 
-            const spreadAngle = 0.15; 
-            bullets.push(new Bullet(bulletX, player.y, 'white', 500, 0)); 
-            bullets.push(new Bullet(bulletX, player.y, 'white', 500, -spreadAngle)); 
-            bullets.push(new Bullet(bulletX, player.y, 'white', 500, spreadAngle)); 
-        } 
-    }
-    
-    // Logika super strzału
-    function shootSuper() { 
-        playSound('superShot'); 
-        superShotCharges--; 
-        updateSuperShotUI(); 
-        const bulletCount = 30; 
-        for (let i = 0; i < bulletCount; i++) { 
-            const angle = (Math.PI * 2 / bulletCount) * i; 
-            bullets.push(new Bullet(player.x + player.width / 2, player.y + player.height / 2, 'red', 300, angle)); 
-        } 
-    }
-    
-    // Zarządza wszystkimi obiektami na ekranie w każdej klatce
-    function handleGameElements(deltaTime) { 
-        const currentEnemyInterval = baseEnemyInterval / enemySpawnMultiplier; 
-        if (enemySpawnTimer > currentEnemyInterval) { 
-            enemies.push(new Enemy()); 
-            enemySpawnTimer = 0; 
-        } else { 
-            enemySpawnTimer += deltaTime * 1000; 
-        } 
-        bullets.forEach(bullet => bullet.update(deltaTime)); 
-        enemies.forEach(enemy => enemy.update(deltaTime)); 
-        for (let i = bullets.length - 1; i >= 0; i--) { 
-            for (let j = enemies.length - 1; j >= 0; j--) { 
-                if (bullets[i] && enemies[j] && checkCollision(bullets[i], enemies[j])) { 
-                    bullets[i].markedForDeletion = true; 
-                    enemies[j].markedForDeletion = true; 
-                    score += 10; 
-                } 
-            } 
-        } 
-        bullets = bullets.filter(bullet => !bullet.markedForDeletion); 
-        enemies = enemies.filter(enemy => !enemy.markedForDeletion); 
-        bullets.forEach(bullet => bullet.draw(ctx)); 
-        enemies.forEach(enemy => enemy.draw(ctx)); 
-    }
-    
-    function checkCollision(rect1, rect2) { 
-        return (rect1.x < rect2.x + rect2.width && rect1.x + rect1.width > rect2.x && rect1.y < rect2.y + rect2.height && rect1.y + rect1.height > rect2.y); 
-    }
-    
-    // Sprawdza warunki przegranej
-    function checkGameState() { 
-        if (missedEnemies >= 3) { 
-            lives--; 
-            missedEnemies = 0; 
-            if (lives > 0) { 
-                playSound('lifeLost'); 
-            } 
-        } 
-        if (lives <= 0 && !gameOver) { 
-            gameOver = true; 
-        } 
-    }
-    
-    // Aktualizuje tekst na ekranie (wynik, życia, poziom)
-    function updateUI() { 
-        scoreEl.innerHTML = `WYNIK: ${score}`; 
-        levelEl.innerHTML = `POZIOM: ${currentLevel}`; 
-        livesEl.innerHTML = `ŻYCIA: ${lives}`; 
-        updateSuperShotUI(); 
-    }
-    
-    // Wyświetla komunikat o nowym poziomie
-    function showLevelUpMessage(level) { 
-        const levelUpEl = document.createElement('div'); 
-        levelUpEl.innerText = `LEVEL ${level}`; 
-        levelUpEl.style.position = 'absolute'; levelUpEl.style.left = '50%'; levelUpEl.style.top = '50%'; levelUpEl.style.transform = 'translate(-50%, -50%)'; levelUpEl.style.color = '#6c6cff'; levelUpEl.style.fontSize = '5em'; levelUpEl.style.textShadow = '3px 3px 6px #000'; levelUpEl.style.opacity = '1'; levelUpEl.style.transition = 'opacity 1s ease-out'; 
-        document.body.appendChild(levelUpEl); 
-        setTimeout(() => { 
-            levelUpEl.style.opacity = '0'; 
-            setTimeout(() => { 
-                document.body.removeChild(levelUpEl); 
-            }, 1000); 
-        }, 1500); 
-    }
-    
-    // Logika przejścia na nowy poziom
-    function levelUp(newLevel) { 
-        currentLevel = newLevel; 
-        showLevelUpMessage(currentLevel); 
-        enemySpeedMultiplier *= 1.2; 
-        enemySpawnMultiplier *= 1.2; 
-        if (currentLevel === 3) { 
-            maxSuperShotCharges = 3; 
-        } 
-        superShotCharges = maxSuperShotCharges; 
-    }
-    
-    // Sprawdza, czy osiągnięto próg punktowy dla nowego poziomu
-    function checkLevelUp() { 
-        if (currentLevel === 1 && score >= 200) { 
-            levelUp(2); 
-        } else if (currentLevel === 2 && score >= 500) { 
-            levelUp(3); 
-        } 
-    }
-    
-    // Główna pętla gry
-    function animate(timestamp) { 
-        if (!lastTime) lastTime = timestamp; 
-        const deltaTime = (timestamp - lastTime) / 1000; 
-        lastTime = timestamp; 
-        ctx.clearRect(0, 0, canvas.width, canvas.height); 
-        if (player) { 
-            player.update(input.x); 
-            player.draw(ctx); 
-        } 
-        handleGameElements(deltaTime); 
-        checkGameState(); 
-        updateUI(); 
-        checkLevelUp(); 
-        if (gameOver) { 
-            if (gameOverScreen.style.display !== 'flex') { 
-                playSound('gameOver'); 
-                setTimeout(() => { 
-                    gameOverScreen.style.display = 'flex'; 
-                    finalScoreEl.innerText = score; 
-                }, 500); 
-            } 
-        } else { 
-            animationFrameId = requestAnimationFrame(animate); 
-        } 
-    }
-    
-    // Resetuje grę do stanu początkowego
     function resetGame() { 
-        if (animationFrameId) cancelAnimationFrame(animationFrameId); 
-        score = 0; 
-        lives = 3; 
-        missedEnemies = 0; 
-        gameOver = false;
-        bullets = []; 
-        enemies = [];
-        currentLevel = 1; 
-        enemyBaseSpeed = 100; 
-        enemySpeedMultiplier = 1.0;
-        baseEnemyInterval = 1000; 
-        enemySpawnMultiplier = 1.0; 
-        enemySpawnTimer = 0;
-        maxSuperShotCharges = 2; 
-        superShotCharges = maxSuperShotCharges;
-        
+        if (animationFrameId) cancelAnimationFrame(animationFrameId);
+        score = 0; lives = 3; missedEnemies = 0; gameOver = false;
+        bullets = []; enemies = [];
+        currentLevel = 1; enemyBaseSpeed = 100; enemySpeedMultiplier = 1.0;
+        baseEnemyInterval = 1000; enemySpawnMultiplier = 1.0; enemySpawnTimer = 0;
+        maxSuperShotCharges = 2; superShotCharges = maxSuperShotCharges;
         gameOverScreen.style.display = 'none';
         resizeGame();
         player = new Player();
@@ -285,84 +92,89 @@ window.addEventListener('load', function() {
         animate(0);
     }
 
-    // --- LOGIKA STARTOWA GRY ---
+    // --- ZMIANA: NOWA, OSTATECZNA ARCHITEKTURA STARTOWA ---
 
-    // Ta funkcja jest wywoływana po kliknięciu "Start"
-    function initAndStartGame() {
+    // Ta funkcja jest wywoływana TYLKO po kliknięciu i ma tylko jedno zadanie.
+    function initAudioAndStartGame() {
         // Usuń listenery, aby zapobiec ponownemu uruchomieniu
-        startScreen.removeEventListener('click', initAndStartGame);
-        startScreen.removeEventListener('touchstart', initAndStartGame);
+        startScreen.removeEventListener('click', initAudioAndStartGame);
+        startScreen.removeEventListener('touchstart', initAudioAndStartGame);
 
-        // Krok 1: Stwórz silnik AudioContext i natychmiast go "obudź"
-        try {
+        // Zaufana operacja: Stwórz i wznów AudioContext NATYCHMIAST
+        if (!audioContext) {
             audioContext = new (window.AudioContext || window.webkitAudioContext)();
-            
-            // Odtwórz pusty, cichy dźwięk, aby oszukać zabezpieczenia iOS
-            const oscillator = audioContext.createOscillator();
-            oscillator.frequency.setValueAtTime(0, audioContext.currentTime);
-            oscillator.connect(audioContext.destination);
-            oscillator.start(0);
-            oscillator.stop(0);
-            
-            if (audioContext.state !== 'running') {
-                audioContext.resume().then(() => {
-                    console.log("AudioContext wznowiony pomyślnie.");
-                    loadAllAssets(); // Kontynuuj ładowanie
-                });
-            } else {
-                loadAllAssets(); // Kontynuuj ładowanie
-            }
-        } catch (e) {
-            console.error("Nie można zainicjować AudioContext:", e);
-            startScreen.innerHTML = '<h1>Błąd Krytyczny Audio</h1><p>Twoja przeglądarka może być niekompatybilna.</p>';
+        }
+        
+        // Jeśli kontekst jest już aktywny, nie rób nic. Jeśli nie, spróbuj go wznowić.
+        // To jest kluczowy moment - `resume()` musi być bezpośrednio w evencie.
+        if (audioContext.state === 'suspended') {
+            audioContext.resume().then(() => {
+                console.log("AudioContext wznowiony pomyślnie.");
+                // Dopiero po udanym wznowieniu kontynuuj z ładowaniem
+                loadAssetsAndStartGame();
+            }).catch(e => {
+                console.error("Nie udało się wznowić AudioContext:", e);
+                // Mimo błędu audio, spróbuj uruchomić grę bez dźwięku
+                loadAssetsAndStartGame(true); 
+            });
+        } else {
+            console.log("AudioContext już jest aktywny.");
+            loadAssetsAndStartGame();
         }
     }
     
-    // Ta funkcja ładuje wszystkie zasoby po odblokowaniu audio
-    async function loadAllAssets() {
-        startScreen.innerHTML = '<h1>ŁADOWANIE...</h1>';
-        startScreen.style.cursor = 'default';
-
+    // Uruchamia ładowanie i faktyczną grę
+    async function loadAssetsAndStartGame(audioFailed = false) {
+        startScreen.style.display = 'none';
+        canvas.style.display = 'block';
+        gameUiElements.style.display = 'block';
+        resizeGame();
+        
+        // Wyświetl informację o ładowaniu na canvasie
+        ctx.fillStyle = 'white';
+        ctx.font = "30px 'Segoe UI'";
+        ctx.textAlign = 'center';
+        ctx.fillText('ŁADOWANIE ZASOBÓW...', canvas.width / 2, canvas.height / 2);
+        
         try {
             const imagePromise = new Promise((resolve, reject) => {
                 shipImage.onload = () => resolve();
                 shipImage.onerror = () => reject(new Error('Błąd ładowania obrazka.'));
                 shipImage.src = 'assets/ship.png';
             });
-
-            const soundUrls = {
-                shoot: 'assets/laser_shoot.wav',
-                lifeLost: 'assets/craaash.wav',
-                gameOver: 'assets/Ohnoo.wav',
-                superShot: 'assets/bigbomb.wav'
-            };
-            const soundPromises = Object.entries(soundUrls).map(([name, url]) =>
-                fetch(url)
-                    .then(response => response.arrayBuffer())
-                    .then(arrayBuffer => audioContext.decodeAudioData(arrayBuffer))
-                    .then(audioBuffer => {
-                        soundBuffers[name] = audioBuffer;
-                    })
-            );
+            
+            let soundPromises = [];
+            if (!audioFailed) {
+                 const soundUrls = {
+                    shoot: 'assets/laser_shoot.wav',
+                    lifeLost: 'assets/craaash.wav',
+                    gameOver: 'assets/Ohnoo.wav',
+                    superShot: 'assets/bigbomb.wav'
+                };
+                soundPromises = Object.entries(soundUrls).map(([name, url]) =>
+                    fetch(url)
+                        .then(response => response.arrayBuffer())
+                        .then(arrayBuffer => audioContext.decodeAudioData(arrayBuffer))
+                        .then(audioBuffer => { soundBuffers[name] = audioBuffer; })
+                );
+            }
 
             await Promise.all([imagePromise, ...soundPromises]);
             
             allAssetsLoaded = true;
-            console.log("Wszystkie zasoby załadowane.");
-            startScreen.style.display = 'none';
-            canvas.style.display = 'block';
-            gameUiElements.style.display = 'block';
+            console.log("Wszystkie zasoby załadowane. Start gry!");
             resetGame();
 
         } catch (error) {
             console.error("Błąd podczas ładowania zasobów:", error);
-            startScreen.innerHTML = '<h1>Błąd ładowania zasobów.</h1><p>Spróbuj odświeżyć stronę.</p>';
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.fillText('Błąd ładowania zasobów.', canvas.width / 2, canvas.height / 2);
         }
     }
 
     // --- PUNKT WEJŚCIA APLIKACJI ---
     // Pokaż ekran startowy i czekaj na kliknięcie użytkownika.
     startScreen.style.display = 'flex';
-    startScreen.addEventListener('click', initAndStartGame);
-    startScreen.addEventListener('touchstart', initAndStartGame);
+    startScreen.addEventListener('click', initAudioAndStartGame);
+    startScreen.addEventListener('touchstart', initAudioAndStartGame);
 });
