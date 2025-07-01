@@ -1,102 +1,46 @@
 window.addEventListener('load', function() {
+    // --- USTAWIENIA I ZMIENNE ---
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
-    
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
 
     // --- UI ---
     const gameContainer = document.body;
     const uiContainer = document.createElement('div');
-    uiContainer.style.position = 'absolute';
-    uiContainer.style.left = '0';
-    uiContainer.style.top = '0';
-    uiContainer.style.width = '100%';
-    uiContainer.style.display = 'flex';
-    uiContainer.style.justifyContent = 'space-between';
-    uiContainer.style.padding = '10px 20px';
-    uiContainer.style.color = 'white';
-    uiContainer.style.fontFamily = 'Segoe UI, Tahoma, sans-serif';
-    uiContainer.style.fontSize = '20px';
-    uiContainer.style.textShadow = '2px 2px 4px #000';
-    uiContainer.style.pointerEvents = 'none';
+    uiContainer.style.position = 'absolute'; uiContainer.style.left = '0'; uiContainer.style.top = '0'; uiContainer.style.width = '100%'; uiContainer.style.display = 'flex'; uiContainer.style.justifyContent = 'space-between'; uiContainer.style.padding = '10px 20px'; uiContainer.style.color = 'white'; uiContainer.style.fontFamily = 'Segoe UI, Tahoma, sans-serif'; uiContainer.style.fontSize = '20px'; uiContainer.style.textShadow = '2px 2px 4px #000'; uiContainer.style.pointerEvents = 'none';
     const scoreEl = document.createElement('div');
     const levelEl = document.createElement('div');
     const livesEl = document.createElement('div');
-    uiContainer.appendChild(scoreEl);
-    uiContainer.appendChild(levelEl);
-    uiContainer.appendChild(livesEl);
+    uiContainer.appendChild(scoreEl); uiContainer.appendChild(levelEl); uiContainer.appendChild(livesEl);
     const superShotBtn = document.createElement('button');
-    superShotBtn.innerText = 'SUPER STRZAŁ';
-    superShotBtn.style.position = 'absolute';
-    superShotBtn.style.left = '50%';
-    superShotBtn.style.transform = 'translateX(-50%)';
-    superShotBtn.style.bottom = '20px';
-    superShotBtn.style.padding = '10px 20px';
-    superShotBtn.style.fontSize = '1em';
-    superShotBtn.style.backgroundColor = '#ff4500';
-    superShotBtn.style.color = 'white';
-    superShotBtn.style.border = '2px solid #ff8c00';
-    superShotBtn.style.borderRadius = '5px';
-    superShotBtn.style.cursor = 'pointer';
+    superShotBtn.innerText = 'SUPER STRZAŁ'; superShotBtn.style.position = 'absolute'; superShotBtn.style.left = '50%'; superShotBtn.style.transform = 'translateX(-50%)'; superShotBtn.style.bottom = '20px'; superShotBtn.style.padding = '10px 20px'; superShotBtn.style.fontSize = '1em'; superShotBtn.style.backgroundColor = '#ff4500'; superShotBtn.style.color = 'white'; superShotBtn.style.border = '2px solid #ff8c00'; superShotBtn.style.borderRadius = '5px'; superShotBtn.style.cursor = 'pointer';
     const gameOverScreen = document.createElement('div');
-    gameOverScreen.style.position = 'absolute';
-    gameOverScreen.style.width = '100%';
-    gameOverScreen.style.height = '100%';
-    gameOverScreen.style.display = 'none';
-    gameOverScreen.style.flexDirection = 'column';
-    gameOverScreen.style.justifyContent = 'center';
-    gameOverScreen.style.alignItems = 'center';
-    gameOverScreen.style.backgroundColor = 'rgba(0,0,0,0.75)';
-    gameOverScreen.style.textAlign = 'center';
+    gameOverScreen.style.position = 'absolute'; gameOverScreen.style.width = '100%'; gameOverScreen.style.height = '100%'; gameOverScreen.style.display = 'none'; gameOverScreen.style.flexDirection = 'column'; gameOverScreen.style.justifyContent = 'center'; gameOverScreen.style.alignItems = 'center'; gameOverScreen.style.backgroundColor = 'rgba(0,0,0,0.75)'; gameOverScreen.style.textAlign = 'center';
     const gameOverTitle = document.createElement('h1');
-    gameOverTitle.innerText = 'GAME OVER';
-    gameOverTitle.style.fontSize = '4em';
-    gameOverTitle.style.color = '#ff4444';
+    gameOverTitle.innerText = 'GAME OVER'; gameOverTitle.style.fontSize = '4em'; gameOverTitle.style.color = '#ff4444';
     const finalScoreText = document.createElement('p');
-    finalScoreText.innerText = 'Twój wynik: ';
-    finalScoreText.style.fontSize = '1.5em';
+    finalScoreText.innerText = 'Twój wynik: '; finalScoreText.style.fontSize = '1.5em';
     const finalScoreEl = document.createElement('span');
     finalScoreText.appendChild(finalScoreEl);
     const newGameBtn = document.createElement('button');
-    newGameBtn.innerText = 'NOWA GRA';
-    newGameBtn.style.marginTop = '30px';
-    newGameBtn.style.padding = '15px 30px';
-    newGameBtn.style.fontSize = '1.2em';
-    newGameBtn.style.cursor = 'pointer';
-    newGameBtn.style.backgroundColor = '#4CAF50';
-    newGameBtn.style.color = 'white';
-    newGameBtn.style.border = 'none';
-    newGameBtn.style.borderRadius = '5px';
+    newGameBtn.innerText = 'NOWA GRA'; newGameBtn.style.marginTop = '30px'; newGameBtn.style.padding = '15px 30px'; newGameBtn.style.fontSize = '1.2em'; newGameBtn.style.cursor = 'pointer'; newGameBtn.style.backgroundColor = '#4CAF50'; newGameBtn.style.color = 'white'; newGameBtn.style.border = 'none'; newGameBtn.style.borderRadius = '5px';
     newGameBtn.addEventListener('click', resetGame);
-    gameOverScreen.appendChild(gameOverTitle);
-    gameOverScreen.appendChild(finalScoreText);
-    gameOverScreen.appendChild(newGameBtn);
+    gameOverScreen.appendChild(gameOverTitle); gameOverScreen.appendChild(finalScoreText); gameOverScreen.appendChild(newGameBtn);
     const startScreen = document.createElement('div');
-    startScreen.style.position = 'absolute';
-    startScreen.style.width = '100%';
-    startScreen.style.height = '100%';
-    startScreen.style.display = 'none';
-    startScreen.style.flexDirection = 'column';
-    startScreen.style.justifyContent = 'center';
-    startScreen.style.alignItems = 'center';
-    startScreen.style.backgroundColor = 'rgba(0,0,0,0.85)';
-    startScreen.style.color = 'white';
-    startScreen.style.fontFamily = 'Segoe UI, Tahoma, sans-serif';
-    startScreen.style.fontSize = '24px';
-    startScreen.style.textAlign = 'center';
-    startScreen.style.cursor = 'pointer';
-    startScreen.innerHTML = '<h1>KOSMICZNA STRZELANKA</h1><p style="margin-top: 20px;">Kliknij lub dotknij ekranu, aby rozpocząć!</p>';
-    gameContainer.appendChild(uiContainer);
-    gameContainer.appendChild(superShotBtn);
-    gameContainer.appendChild(gameOverScreen);
-    gameContainer.appendChild(startScreen);
+    startScreen.style.position = 'absolute'; startScreen.style.width = '100%'; startScreen.style.height = '100%'; startScreen.style.display = 'flex';
+    startScreen.style.flexDirection = 'column'; startScreen.style.justifyContent = 'center'; startScreen.style.alignItems = 'center'; startScreen.style.backgroundColor = 'rgba(0,0,0,0.85)'; startScreen.style.color = 'white'; startScreen.style.fontFamily = 'Segoe UI, Tahoma, sans-serif'; startScreen.style.fontSize = '24px'; startScreen.style.textAlign = 'center'; startScreen.style.cursor = 'pointer';
+    startScreen.innerHTML = '<h1>ŁADOWANIE ZASOBÓW...</h1>'; // Zaczynamy z tym tekstem
+    gameContainer.appendChild(uiContainer); gameContainer.appendChild(superShotBtn); gameContainer.appendChild(gameOverScreen); gameContainer.appendChild(startScreen);
 
-    // --- ZASOBY GRY ---
+    // --- ZASOBY I ZMIENNE GRY ---
     const shipImage = new Image();
     let audioContext;
     let soundBuffers = {}; 
+    let allAssetsLoaded = false;
+
     function playSound(name) {
+        if (!allAssetsLoaded) return;
         const buffer = soundBuffers[name];
         if (!audioContext || !buffer || audioContext.state !== 'running') return;
         const source = audioContext.createBufferSource();
@@ -105,7 +49,6 @@ window.addEventListener('load', function() {
         source.start(0);
     }
     
-    // --- ZMIENNE STANU GRY ---
     let score, lives, missedEnemies, gameOver, animationFrameId;
     let player, bullets, enemies;
     let lastTime = 0;
@@ -114,12 +57,10 @@ window.addEventListener('load', function() {
     let baseEnemyInterval, enemySpawnMultiplier, enemySpawnTimer;
     let superShotCharges, maxSuperShotCharges;
 
-    // --- KLASY ---
+    // --- KLASY I LOGIKA GRY (BEZ ZMIAN) ---
     class Player { constructor() { this.width = 50; this.height = 40; this.x = canvas.width / 2 - this.width / 2; this.bottomLimit = 100; this.y = canvas.height - this.height - this.bottomLimit; } draw(context) { context.drawImage(shipImage, this.x, this.y, this.width, this.height); } update(inputX) { if (inputX !== null) { this.x = inputX - this.width / 2; } if (this.x < 0) this.x = 0; if (this.x > canvas.width - this.width) this.x = canvas.width - this.width; } }
     class Bullet { constructor(x, y, color = 'white', speed = 500, angle = 0) { this.x = x; this.y = y; this.width = 5; this.height = 15; this.color = color; this.speedX = Math.sin(angle) * speed; this.speedY = -Math.cos(angle) * speed; this.markedForDeletion = false; } update(deltaTime) { this.x += this.speedX * deltaTime; this.y += this.speedY * deltaTime; if (this.y < 0) this.markedForDeletion = true; } draw(context) { context.fillStyle = this.color; context.fillRect(this.x, this.y, this.width, this.height); } }
     class Enemy { constructor() { this.width = 50; this.height = 45; this.x = Math.random() * (canvas.width - this.width); this.y = -this.height; this.speed = (Math.random() * 100 + enemyBaseSpeed) * enemySpeedMultiplier; this.markedForDeletion = false; } draw(context) { context.drawImage(shipImage, this.x, this.y, this.width, this.height); } update(deltaTime) { this.y += this.speed * deltaTime; if (this.y > canvas.height) { this.markedForDeletion = true; missedEnemies++; } } }
-
-    // --- LOGIKA GRY ---
     function resizeGame() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; if (player) { player.x = Math.max(0, Math.min(player.x, canvas.width - player.width)); player.y = canvas.height - player.height - player.bottomLimit; } }
     window.addEventListener('resize', resizeGame);
     const input = { x: canvas.width / 2 };
@@ -142,80 +83,69 @@ window.addEventListener('load', function() {
     function animate(timestamp) { if (!lastTime) lastTime = timestamp; const deltaTime = (timestamp - lastTime) / 1000; lastTime = timestamp; ctx.clearRect(0, 0, canvas.width, canvas.height); if (player) { player.update(input.x); player.draw(ctx); } handleGameElements(deltaTime); checkGameState(); updateUI(); checkLevelUp(); if (gameOver) { if (gameOverScreen.style.display !== 'flex') { playSound('gameOver'); setTimeout(() => { gameOverScreen.style.display = 'flex'; finalScoreEl.innerText = score; }, 500); } } else { animationFrameId = requestAnimationFrame(animate); } }
     function resetGame() { if (animationFrameId) cancelAnimationFrame(animationFrameId); score = 0; lives = 3; missedEnemies = 0; gameOver = false; bullets = []; enemies = []; currentLevel = 1; enemyBaseSpeed = 100; enemySpeedMultiplier = 1.0; baseEnemyInterval = 1000; enemySpawnMultiplier = 1.0; enemySpawnTimer = 0; maxSuperShotCharges = 2; superShotCharges = maxSuperShotCharges; gameOverScreen.style.display = 'none'; resizeGame(); player = new Player(); input.x = canvas.width / 2; lastTime = 0; updateUI(); animate(0); }
 
-    // --- ZMIANA: Ostateczna logika startowa z .then() dla maksymalnej kompatybilności ---
-    function unlockAudioAndStartGame() {
-        window.removeEventListener('click', unlockAudioAndStartGame);
-        window.removeEventListener('touchstart', unlockAudioAndStartGame);
-        
-        startScreen.innerHTML = '<h1>ŁADOWANIE...</h1>';
-        startScreen.style.cursor = 'default';
+    // --- ZMIANA: NOWA ARCHITEKTURA STARTOWA ---
 
-        if (!audioContext) {
-            audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    // Funkcja do aktywacji audio i rozpoczęcia gry
+    function activateAndStartGame() {
+        // Usuń listenery, aby zapobiec wielokrotnemu wywołaniu
+        window.removeEventListener('click', activateAndStartGame);
+        window.removeEventListener('touchstart', activateAndStartGame);
+
+        // Najważniejszy krok: wznowienie AudioContext
+        if (audioContext && audioContext.state === 'suspended') {
+            audioContext.resume();
         }
 
-        // Krok 1: Wznów kontekst i poczekaj na sukces za pomocą .then()
-        audioContext.resume().then(() => {
-            console.log("AudioContext jest w stanie 'running'.");
-            
-            // Krok 2: Ustaw sesję dla iOS
-            if ('audioSession' in navigator) {
-                navigator.audioSession.type = 'playback';
-            }
+        // Ukryj ekran startowy i uruchom grę
+        startScreen.style.display = 'none';
+        resetGame();
+    }
+    
+    // Funkcja, która jest wywoływana, gdy wszystkie zasoby są gotowe
+    function onAllAssetsLoaded() {
+        allAssetsLoaded = true;
+        // Zmień tekst i przygotuj na interakcję użytkownika
+        startScreen.innerHTML = '<h1>KOSMICZNA STRZELANKA</h1><p style="margin-top: 20px;">Gra gotowa. Dotknij ekranu, aby rozpocząć!</p>';
+        window.addEventListener('click', activateAndStartGame);
+        window.addEventListener('touchstart', activateAndStartGame);
+    }
+    
+    // Główna funkcja ładująca
+    function loadAssets() {
+        // Stwórz AudioContext na samym początku
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        
+        // Przygotuj listę dźwięków do załadowania
+        const soundUrls = {
+            shoot: 'assets/laser_shoot.wav',
+            lifeLost: 'assets/craaash.wav',
+            gameOver: 'assets/Ohnoo.wav',
+            superShot: 'assets/bigbomb.wav'
+        };
 
-            // Krok 3: Zwróć obietnicę ładowania wszystkich dźwięków
-            const soundUrls = {
-                shoot: 'assets/laser_shoot.wav',
-                lifeLost: 'assets/craaash.wav',
-                gameOver: 'assets/Ohnoo.wav',
-                superShot: 'assets/bigbomb.wav'
-            };
+        const soundPromises = Object.entries(soundUrls).map(([name, url]) =>
+            fetch(url)
+                .then(response => response.arrayBuffer())
+                .then(arrayBuffer => audioContext.decodeAudioData(arrayBuffer))
+                .then(audioBuffer => { soundBuffers[name] = audioBuffer; })
+        );
 
-            const loadPromises = Object.entries(soundUrls).map(([name, url]) => {
-                return fetch(url)
-                    .then(response => {
-                        if (!response.ok) throw new Error(`Błąd HTTP ${response.status} dla ${url}`);
-                        return response.arrayBuffer();
-                    })
-                    .then(arrayBuffer => audioContext.decodeAudioData(arrayBuffer))
-                    .then(audioBuffer => {
-                        soundBuffers[name] = audioBuffer;
-                    });
-            });
-
-            return Promise.all(loadPromises);
-
-        }).then(() => {
-            // Krok 4: Ten blok wykona się, gdy wszystkie dźwięki będą gotowe
-            console.log('Wszystkie dźwięki załadowane, startuję grę.');
-            startScreen.style.display = 'none';
-            resetGame();
-        }).catch(error => {
-            // Krok 5: Złap jakikolwiek błąd z całej operacji
-            console.error("Błąd krytyczny podczas inicjalizacji audio:", error);
-            startScreen.innerHTML = '<h1>Błąd audio</h1><p>Spróbuj odświeżyć stronę.</p>';
+        // Przygotuj obietnicę załadowania obrazka
+        const imagePromise = new Promise((resolve, reject) => {
+            shipImage.onload = () => resolve();
+            shipImage.onerror = () => reject(new Error('Błąd ładowania obrazka.'));
+            shipImage.src = 'assets/ship.png';
         });
+
+        // Zaczekaj na załadowanie WSZYSTKICH zasobów (dźwięków i obrazka)
+        Promise.all([imagePromise, ...soundPromises])
+            .then(onAllAssetsLoaded)
+            .catch(error => {
+                console.error("Błąd podczas ładowania zasobów:", error);
+                startScreen.innerHTML = '<h1>Błąd ładowania zasobów.</h1><p>Spróbuj odświeżyć stronę.</p>';
+            });
     }
 
-    function onImageLoaded() {
-        startScreen.style.display = 'flex';
-        window.addEventListener('click', unlockAudioAndStartGame);
-        window.addEventListener('touchstart', unlockAudioAndStartGame);
-    }
-    
-    function showInitialLoading() {
-        ctx.fillStyle = 'black'; ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.fillStyle = 'white'; ctx.font = "30px 'Segoe UI'";
-        ctx.textAlign = 'center'; ctx.fillText('ŁADOWANIE GRAFIKI...', canvas.width / 2, canvas.height / 2);
-    }
-    
-    showInitialLoading();
-    
-    shipImage.onload = onImageLoaded;
-    shipImage.onerror = () => alert("BŁĄD: Nie można załadować grafiki.");
-    shipImage.src = 'assets/ship.png';
-
-    if (shipImage.complete) {
-        onImageLoaded();
-    }
+    // Rozpocznij cały proces
+    loadAssets();
 });
