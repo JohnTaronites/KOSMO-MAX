@@ -30,7 +30,6 @@ window.addEventListener('load', function() {
     finalScoreText.appendChild(finalScoreEl);
     const newGameBtn = document.createElement('button');
     newGameBtn.innerText = 'NOWA GRA'; newGameBtn.style.marginTop = '30px'; newGameBtn.style.padding = '15px 30px'; newGameBtn.style.fontSize = '1.2em'; newGameBtn.style.cursor = 'pointer'; newGameBtn.style.backgroundColor = '#4CAF50'; newGameBtn.style.color = 'white'; newGameBtn.style.border = 'none'; newGameBtn.style.borderRadius = '5px';
-    newGameBtn.addEventListener('click', resetGame);
     gameOverScreen.appendChild(gameOverTitle); gameOverScreen.appendChild(finalScoreText); gameOverScreen.appendChild(newGameBtn);
     gameUiElements.appendChild(uiContainer);
     gameUiElements.appendChild(superShotBtn);
@@ -42,16 +41,9 @@ window.addEventListener('load', function() {
     let audioContext;
     let soundBuffers = {}; 
     let audioInitialized = false;
+    let rawSoundData = {}; // Przechowuje surowe dane dźwiękowe
     
-    function playSound(name) {
-        if (!audioInitialized) return;
-        const buffer = soundBuffers[name]; 
-        if (!audioContext || !buffer || audioContext.state !== 'running') return; 
-        const source = audioContext.createBufferSource(); 
-        source.buffer = buffer; 
-        source.connect(audioContext.destination); 
-        source.start(0); 
-    }
+    function playSound(name) { if (!audioInitialized) return; const buffer = soundBuffers[name]; if (!audioContext || !buffer || audioContext.state !== 'running') return; const source = audioContext.createBufferSource(); source.buffer = buffer; source.connect(audioContext.destination); source.start(0); }
     
     // --- ZMIENNE STANU GRY ---
     let score, lives, missedEnemies, gameOver, animationFrameId, lastTime = 0;
@@ -101,26 +93,24 @@ window.addEventListener('load', function() {
         animate(0);
     }
 
-    // --- ZMIANA: NOWA ARCHITEKTURA STARTOWA ---
+    // --- ZMIANA: NOWA, OSTATECZNA ARCHITEKTURA STARTOWA ---
 
-    // Funkcja wywoływana po kliknięciu "Start"
+    // Ta funkcja jest wywoływana TYLKO po kliknięciu "Start"
     function initGame() {
         startScreen.removeEventListener('click', initGame);
         startScreen.removeEventListener('touchstart', initGame);
 
-        // Zniszcz stary kontekst audio, jeśli istnieje (klucz do naprawy błędu po odświeżeniu)
+        // KROK 1: Zniszcz stary kontekst audio, jeśli istnieje
         if (audioContext && audioContext.state !== 'closed') {
             audioContext.close();
         }
         
-        // Stwórz nowy, świeży kontekst audio
+        // KROK 2: Stwórz nowy, świeży kontekst audio i spróbuj go wznowić
         audioContext = new (window.AudioContext || window.webkitAudioContext)();
-        
-        // Od razu spróbuj go wznowić
         audioContext.resume().then(() => {
-            console.log("AudioContext jest gotowy i działa. Stan:", audioContext.state);
+            console.log("AudioContext gotowy i działa. Stan:", audioContext.state);
             audioInitialized = true;
-            playSound('letsgo');
+            playSound('letsgo'); // Zagraj dźwięk potwierdzenia
         }).catch(e => {
             console.error("Nie udało się wznowić AudioContext:", e);
         });
@@ -131,7 +121,7 @@ window.addEventListener('load', function() {
         resetGame();
     }
     
-    // Ładuje wszystkie zasoby w tle, od razu po załadowaniu strony
+    // Ładuje wszystkie zasoby w tle, zaraz po załadowaniu strony
     async function loadInitialAssets() {
         try {
             const imagePromise = new Promise((resolve, reject) => {
@@ -145,7 +135,7 @@ window.addEventListener('load', function() {
             const soundUrls = {
                 shoot: 'assets/laser_shoot.wav', lifeLost: 'assets/craaash.wav',
                 gameOver: 'assets/Ohnoo.wav', superShot: 'assets/bigbomb.wav',
-                letsgo: 'assets/letsgo.wav' // Dodajemy dźwięk startowy do ładowania
+                letsgo: 'assets/letsgo.wav'
             };
             const soundPromises = Object.entries(soundUrls).map(([name, url]) =>
                 fetch(url)
