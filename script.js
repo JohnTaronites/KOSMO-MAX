@@ -1,7 +1,7 @@
-// Wersja 3.1
+// Wersja 3.2
 window.addEventListener('load', function() {
     // --- GŁÓWNE ZMIENNE I KONFIGURACJA ---
-    const version = '3.1';
+    const version = '3.2';
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
     const startScreen = document.getElementById('startScreen');
@@ -30,7 +30,6 @@ window.addEventListener('load', function() {
     finalScoreText.appendChild(finalScoreEl);
     const newGameBtn = document.createElement('button');
     newGameBtn.innerText = 'NOWA GRA'; newGameBtn.style.marginTop = '30px'; newGameBtn.style.padding = '15px 30px'; newGameBtn.style.fontSize = '1.2em'; newGameBtn.style.cursor = 'pointer'; newGameBtn.style.backgroundColor = '#4CAF50'; newGameBtn.style.color = 'white'; newGameBtn.style.border = 'none'; newGameBtn.style.borderRadius = '5px';
-    newGameBtn.addEventListener('click', resetGame);
     gameOverScreen.appendChild(gameOverTitle); gameOverScreen.appendChild(finalScoreText); gameOverScreen.appendChild(newGameBtn);
     gameUiElements.appendChild(uiContainer);
     gameUiElements.appendChild(superShotBtn);
@@ -101,63 +100,65 @@ window.addEventListener('load', function() {
         animate(0);
     }
 
-    // --- ZMIANA: NOWA, OSTATECZNA ARCHITEKTURA STARTOWA ---
+    // --- ZMIANA: OSTATECZNA, ODPORNA NA ODŚWIEŻANIE LOGIKA STARTOWA ---
 
-    // Funkcja wywoływana po kliknięciu "Start"
+    // Ta funkcja jest wywoływana TYLKO po kliknięciu "Start"
     function initGame() {
         startScreen.removeEventListener('click', initGame);
         startScreen.removeEventListener('touchstart', initGame);
 
-        // Krok 1: Stwórz AudioContext w odpowiedzi na akcję użytkownika
-        // To jest nasza jedyna wrażliwa operacja w tym evencie.
-        if (!audioContext) {
-            audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        // Zniszcz stary kontekst audio, jeśli istnieje (klucz do naprawy błędu po odświeżeniu)
+        if (audioContext && audioContext.state !== 'closed') {
+            audioContext.close();
         }
         
-        // Krok 2: Od razu spróbuj wznowić kontekst.
+        // Stwórz nowy, świeży kontekst audio
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        
+        // Spróbuj go wznowić - to nasza jedyna wrażliwa operacja
         audioContext.resume().then(() => {
             console.log("AudioContext jest gotowy i działa. Stan:", audioContext.state);
             audioInitialized = true;
-            playSound('letsgo'); // Zagraj dźwięk potwierdzenia
+            playSound('letsgo'); // Odtwórz dźwięk potwierdzenia
         }).catch(e => {
-            console.error("Nie udało się wznowić AudioContext. Gra będzie bez dźwięku.", e);
-            // Nie blokujemy gry, jeśli audio zawiedzie.
+            console.error("Nie udało się wznowić AudioContext:", e);
         });
 
-        // Krok 3: Niezależnie od audio, uruchom grę.
         startScreen.style.display = 'none';
         canvas.style.display = 'block';
         gameUiElements.style.display = 'block';
         resetGame();
     }
     
-    // Ładuje wszystkie zasoby w tle, zaraz po załadowaniu strony
+    // Ta funkcja ładuje wszystkie zasoby w tle, od razu po załadowaniu strony
     async function loadInitialAssets() {
         try {
             const imagePromise = new Promise((resolve, reject) => {
-                shipImage.onload = resolve;
-                shipImage.onerror = reject;
+                shipImage.onload = () => resolve();
+                shipImage.onerror = () => reject(new Error('Błąd ładowania obrazka.'));
                 shipImage.src = 'assets/ship.png';
             });
 
-            // Tworzymy tymczasowy kontekst offline TYLKO do zdekodowania audio
-            const offlineCtx = new (window.OfflineAudioContext || window.webkitOfflineAudioContext)(1, 1, 44100);
             const soundUrls = {
                 shoot: 'assets/laser_shoot.wav', lifeLost: 'assets/craaash.wav',
                 gameOver: 'assets/Ohnoo.wav', superShot: 'assets/bigbomb.wav',
                 letsgo: 'assets/letsgo.wav'
             };
+
+            // Użyjemy tymczasowego kontekstu do dekodowania w tle
+            const tempAudioCtx = new (window.OfflineAudioContext || window.webkitOfflineAudioContext)(1, 1, 44100);
+
             const soundPromises = Object.entries(soundUrls).map(([name, url]) =>
                 fetch(url)
                     .then(response => response.arrayBuffer())
-                    .then(arrayBuffer => offlineCtx.decodeAudioData(arrayBuffer))
+                    .then(arrayBuffer => tempAudioCtx.decodeAudioData(arrayBuffer))
                     .then(audioBuffer => { soundBuffers[name] = audioBuffer; })
             );
 
             await Promise.all([imagePromise, ...soundPromises]);
             
-            // Gdy wszystko gotowe, zmień tekst i pozwól na start
             startScreenText.innerHTML = 'Gra gotowa! Dotknij, aby grać.';
+            startScreen.style.cursor = 'pointer';
             startScreen.addEventListener('click', initGame);
             startScreen.addEventListener('touchstart', initGame);
 
