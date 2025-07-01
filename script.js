@@ -1,7 +1,7 @@
-// Wersja 1.4
+// Wersja 2.0
 window.addEventListener('load', function() {
     // --- GŁÓWNE ZMIENNE I KONFIGURACJA ---
-    const version = '1.4';
+    const version = '2.0';
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
     const startScreen = document.getElementById('startScreen');
@@ -29,7 +29,6 @@ window.addEventListener('load', function() {
     finalScoreText.appendChild(finalScoreEl);
     const newGameBtn = document.createElement('button');
     newGameBtn.innerText = 'NOWA GRA'; newGameBtn.style.marginTop = '30px'; newGameBtn.style.padding = '15px 30px'; newGameBtn.style.fontSize = '1.2em'; newGameBtn.style.cursor = 'pointer'; newGameBtn.style.backgroundColor = '#4CAF50'; newGameBtn.style.color = 'white'; newGameBtn.style.border = 'none'; newGameBtn.style.borderRadius = '5px';
-    newGameBtn.addEventListener('click', resetGame);
     gameOverScreen.appendChild(gameOverTitle); gameOverScreen.appendChild(finalScoreText); gameOverScreen.appendChild(newGameBtn);
     gameUiElements.appendChild(uiContainer); gameUiElements.appendChild(superShotBtn);
     document.body.appendChild(gameUiElements); document.body.appendChild(gameOverScreen);
@@ -38,9 +37,6 @@ window.addEventListener('load', function() {
     const shipImage = new Image();
     let audioContext;
     let soundBuffers = {}; 
-    
-    // ZMIANA: Nowy dźwięk <audio> do odblokowania
-    const unlockSound = new Audio('assets/letsgo.wav');
     
     function playSound(name) { const buffer = soundBuffers[name]; if (!audioContext || !buffer || audioContext.state !== 'running') return; const source = audioContext.createBufferSource(); source.buffer = buffer; source.connect(audioContext.destination); source.start(0); }
     
@@ -77,92 +73,88 @@ window.addEventListener('load', function() {
     function animate(timestamp) { if (!lastTime) lastTime = timestamp; const deltaTime = (timestamp - lastTime) / 1000; lastTime = timestamp; ctx.clearRect(0, 0, canvas.width, canvas.height); if (player) { player.update(input.x); player.draw(ctx); } handleGameElements(deltaTime); checkGameState(); updateUI(); checkLevelUp(); if (gameOver) { if (gameOverScreen.style.display !== 'flex') { playSound('gameOver'); setTimeout(() => { gameOverScreen.style.display = 'flex'; finalScoreEl.innerText = score; }, 500); } } else { animationFrameId = requestAnimationFrame(animate); } }
     function resetGame() { if (animationFrameId) cancelAnimationFrame(animationFrameId); score = 0; lives = 3; missedEnemies = 0; gameOver = false; bullets = []; enemies = []; currentLevel = 1; enemyBaseSpeed = 100; enemySpeedMultiplier = 1.0; baseEnemyInterval = 1000; enemySpawnMultiplier = 1.0; enemySpawnTimer = 0; maxSuperShotCharges = 2; superShotCharges = maxSuperShotCharges; gameOverScreen.style.display = 'none'; resizeGame(); player = new Player(); input.x = canvas.width / 2; lastTime = 0; updateUI(); animate(0); }
 
-    // --- ZMIANA: NOWA ARCHITEKTURA STARTOWA ---
-
-    // Ta funkcja jest wywoływana TYLKO po kliknięciu
+    // --- ZMIANA: NOWA, OSTATECZNA ARCHITEKTURA STARTOWA ---
+    
+    // Funkcja do aktywacji audio i rozpoczęcia gry
     function initAndStartGame() {
+        // Usuń listenery, aby zapobiec ponownemu uruchomieniu
         startScreen.removeEventListener('click', initAndStartGame);
         startScreen.removeEventListener('touchstart', initAndStartGame);
-        
-        // Krok 1: Odtwórz wstępnie załadowany dźwięk odblokowujący
-        unlockSound.play();
 
         // Pokaż graczowi, że coś się dzieje
         startScreen.style.display = 'none';
         canvas.style.display = 'block';
         gameUiElements.style.display = 'block';
         resizeGame();
+        
         ctx.fillStyle = 'white';
         ctx.font = "30px 'Segoe UI'";
         ctx.textAlign = 'center';
-        ctx.fillText('ŁADOWANIE DŹWIĘKÓW...', canvas.width / 2, canvas.height / 2);
+        ctx.fillText('ŁADOWANIE ZASOBÓW...', canvas.width / 2, canvas.height / 2);
 
-        // Krok 2: Stwórz i wznów AudioContext (teraz powinno się powieść)
-        audioContext = new (window.AudioContext || window.webkitAudioContext)();
-        audioContext.resume().then(() => {
-            console.log("AudioContext gotowy. Stan:", audioContext.state);
-            // Krok 3: Dopiero teraz ładuj resztę dźwięków
-            loadGameSounds();
-        }).catch(e => {
-            console.error("Nie można wznowić AudioContext:", e);
-            // Gra wystartuje, ale dźwięki z Web Audio API nie będą działać
-            resetGame();
-        });
+        // Krok 1: Stwórz AudioContext i natychmiast spróbuj go "obudzić"
+        if (!audioContext) {
+            audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        
+        // Jeśli kontekst jest "uśpiony", próba .resume() jest jedyną operacją audio
+        // w tym zaufanym evencie.
+        if (audioContext.state === 'suspended') {
+            audioContext.resume().then(() => {
+                console.log("AudioContext wznowiony pomyślnie.");
+            }).catch(e => {
+                console.error("Nie udało się wznowić AudioContext:", e);
+            });
+        }
+
+        // Krok 2: Niezależnie od audio, ładuj wszystkie zasoby
+        loadAllAssets();
     }
     
-    // Ładuje dźwięki do gry
-    async function loadGameSounds() {
-        const soundUrls = {
-            shoot: 'assets/laser_shoot.wav',
-            // lifeLost, gameOver, superShot są już jako <audio>
-        };
+    // Uruchamia ładowanie zasobów i na końcu gry
+    async function loadAllAssets() {
         try {
-            const soundPromises = Object.entries(soundUrls).map(([name, url]) =>
+            const imagePromise = new Promise((resolve, reject) => {
+                shipImage.onload = () => resolve();
+                shipImage.onerror = () => reject(new Error('Błąd ładowania obrazka.'));
+                shipImage.src = 'assets/ship.png';
+            });
+            
+            const soundUrls = {
+                shoot: 'assets/laser_shoot.wav',
+                lifeLost: 'assets/craaash.wav',
+                gameOver: 'assets/Ohnoo.wav',
+                superShot: 'assets/bigbomb.wav'
+            };
+            
+            // Czekaj tylko na obrazek, aby gra mogła się narysować
+            await imagePromise;
+
+            // Dźwięki ładuj w tle, ale nie blokuj startu gry
+            Object.entries(soundUrls).forEach(([name, url]) => {
                 fetch(url)
                     .then(response => response.arrayBuffer())
                     .then(arrayBuffer => audioContext.decodeAudioData(arrayBuffer))
-                    .then(audioBuffer => { soundBuffers[name] = audioBuffer; })
-            );
-            await Promise.all(soundPromises);
+                    .then(audioBuffer => {
+                        soundBuffers[name] = audioBuffer;
+                        console.log(`Dźwięk "${name}" załadowany.`);
+                    })
+                    .catch(e => console.error(`Błąd ładowania dźwięku ${name}:`, e));
+            });
+            
             allAssetsLoaded = true;
-            console.log("Wszystkie zasoby Web Audio załadowane.");
-            resetGame(); // Uruchom grę
+            console.log("Ładowanie dźwięków rozpoczęte w tle. Start gry!");
+            resetGame(); // Uruchom grę od razu po załadowaniu obrazka
+
         } catch (error) {
-            console.error("Błąd ładowania dźwięków Web Audio:", error);
-            resetGame(); // Uruchom grę nawet jeśli dźwięki zawiodą
+            console.error("Błąd podczas ładowania zasobów:", error);
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.fillText('Błąd ładowania zasobów.', canvas.width / 2, canvas.height / 2);
         }
     }
-    
+
     // --- PUNKT WEJŚCIA APLIKACJI ---
-    function init() {
-        startScreen.innerHTML = '<h1>ŁADOWANIE...</h1>';
-        startScreen.style.cursor = 'default';
-        
-        // Obietnica załadowania obrazka
-        const imagePromise = new Promise((resolve, reject) => {
-            shipImage.onload = resolve;
-            shipImage.onerror = reject;
-            shipImage.src = 'assets/ship.png';
-        });
-
-        // Obietnica załadowania dźwięku odblokowującego
-        const unlockSoundPromise = new Promise((resolve, reject) => {
-            unlockSound.addEventListener('canplaythrough', resolve, { once: true });
-            unlockSound.onerror = reject;
-        });
-
-        // Czekaj na oba kluczowe zasoby
-        Promise.all([imagePromise, unlockSoundPromise]).then(() => {
-            console.log("Zasoby startowe gotowe.");
-            startScreen.innerHTML = '<h1>KOSMICZNA STRZELANKA</h1><p style="margin-top: 20px;">Gra gotowa. Dotknij ekranu, aby rozpocząć!</p>';
-            startScreen.style.cursor = 'pointer';
-            startScreen.addEventListener('click', initAndStartGame);
-            startScreen.addEventListener('touchstart', initAndStartGame);
-        }).catch(error => {
-            console.error("Błąd ładowania zasobów startowych:", error);
-            startScreen.innerHTML = '<h1>Błąd ładowania zasobów.</h1><p>Spróbuj odświeżyć stronę.</p>';
-        });
-    }
-
-    init();
+    // Po załadowaniu strony, natychmiast dodaj listenery do przycisku start
+    startScreen.addEventListener('click', initAndStartGame);
+    startScreen.addEventListener('touchstart', initAndStartGame);
 });
