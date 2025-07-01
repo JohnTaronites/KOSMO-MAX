@@ -1,4 +1,4 @@
-/* Wersja 2.3 */
+/* Wersja 2.4 */
 * {
     margin: 0;
     padding: 0;
@@ -12,11 +12,9 @@ html, body {
     background-color: #0c0c1c;
     color: white;
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    
-    /* ZMIANA: Zapobiega domyślnym akcjom dotykowym, jak double-tap-to-zoom */
     touch-action: manipulation;
-    -webkit-touch-callout: none; /* Zapobiega menu kontekstowemu na iOS */
-    user-select: none; /* Zapobiega zaznaczaniu tekstu */
+    -webkit-touch-callout: none;
+    user-select: none;
     -webkit-user-select: none;
 }
 
