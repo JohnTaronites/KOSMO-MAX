@@ -1,7 +1,7 @@
-// Wersja 3.3
+// Wersja 3.4
 window.addEventListener('load', function() {
     // --- GŁÓWNE ZMIENNE I KONFIGURACJA ---
-    const version = '3.3';
+    const version = '3.4'; // Zmiana wersji
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
     const startScreen = document.getElementById('startScreen');
@@ -41,7 +41,6 @@ window.addEventListener('load', function() {
     let audioContext;
     let soundBuffers = {}; 
     let audioInitialized = false;
-    let rawSoundData = {}; // Przechowuje surowe dane dźwiękowe
     
     function playSound(name) { if (!audioInitialized) return; const buffer = soundBuffers[name]; if (!audioContext || !buffer || audioContext.state !== 'running') return; const source = audioContext.createBufferSource(); source.buffer = buffer; source.connect(audioContext.destination); source.start(0); }
     
@@ -68,7 +67,7 @@ window.addEventListener('load', function() {
     function updateSuperShotUI() { superShotBtn.innerText = `SUPER STRZAŁ (${superShotCharges})`; superShotBtn.disabled = superShotCharges <= 0; }
     function shootTriple() { playSound('shoot'); const bulletX = player.x + player.width / 2 - 2.5; if (currentLevel < 3) { setTimeout(() => { if (!gameOver) bullets.push(new Bullet(bulletX, player.y)) }, 0); setTimeout(() => { if (!gameOver) bullets.push(new Bullet(bulletX, player.y)) }, 100); setTimeout(() => { if (!gameOver) bullets.push(new Bullet(bulletX, player.y)) }, 200); } else { const spreadAngle = 0.15; bullets.push(new Bullet(bulletX, player.y, 'white', 500, 0)); bullets.push(new Bullet(bulletX, player.y, 'white', 500, -spreadAngle)); bullets.push(new Bullet(bulletX, player.y, 'white', 500, spreadAngle)); } }
     function shootSuper() { playSound('superShot'); superShotCharges--; updateSuperShotUI(); const bulletCount = 30; for (let i = 0; i < bulletCount; i++) { const angle = (Math.PI * 2 / bulletCount) * i; bullets.push(new Bullet(player.x + player.width / 2, player.y + player.height / 2, 'red', 300, angle)); } }
-    function handleGameElements(deltaTime) { const currentEnemyInterval = baseEnemyInterval / enemySpawnMultiplier; if (enemySpawnTimer > currentEnemyInterval) { enemies.push(new Enemy()); enemySpawnTimer = 0; } else { enemySpawnTimer += deltaTime * 1000; } bullets.forEach(bullet => bullet.update(deltaTime)); enemies.forEach(enemy => enemy.update(deltaTime)); for (let i = bullets.length - 1; i >= 0; i--) { for (let j = enemies.length - 1; j >= 0; j--) { if (bullets[i] && enemies[j] && checkCollision(bullets[i], enemies[j])) { bullets[i].markedForDeletion = true; enemies[j].markedForDeletion = true; score += 10; } } } bullets = bullets.filter(bullet => !bullet.markedForDeletion); enemies = enemies.filter(enemy => !enemy.markedForDeletion); bullets.forEach(bullet => bullet.draw(ctx)); enemies.forEach(enemy => enemy.draw(ctx)); }
+    function handleGameElements(deltaTime) { const currentEnemyInterval = baseEnemyInterval / enemySpawnMultiplier; if (enemySpawnTimer > currentEnemyInterval) { enemies.push(new Enemy()); enemySpawnTimer = 0; } else { enemySpawnTimer += deltaTime * 1000; } bullets.forEach(bullet => bullet.update(deltaTime)); enemies.forEach(enemy => enemy.update(deltaTime)); for (let i = bullets.length - 1; i >= 0; i--) { for (let j = enemies.length - 1; j >= 0; j--) { if (bullets[i] && enemies[j] && checkCollision(bullets[i], enemies[j])) { bullets[i].markedForDeletion = true; enemies[j].markedForDeletion = true; score += 10; } } } bullets = bullets.filter(bullet => !bullet.markedForDeletion); enemies = enemies.filter(enemy => !bullet.markedForDeletion); bullets.forEach(bullet => bullet.draw(ctx)); enemies.forEach(enemy => enemy.draw(ctx)); }
     function checkCollision(rect1, rect2) { return (rect1.x < rect2.x + rect2.width && rect1.x + rect1.width > rect2.x && rect1.y < rect2.y + rect2.height && rect1.y + rect1.height > rect2.y); }
     function checkGameState() { if (missedEnemies >= 3) { lives--; missedEnemies = 0; if (lives > 0) { playSound('lifeLost'); } } if (lives <= 0 && !gameOver) { gameOver = true; } }
     function updateUI() { scoreEl.innerHTML = `WYNIK: ${score}`; levelEl.innerHTML = `POZIOM: ${currentLevel}`; livesEl.innerHTML = `ŻYCIA: ${lives}`; updateSuperShotUI(); }
@@ -93,58 +92,67 @@ window.addEventListener('load', function() {
         animate(0);
     }
 
-    // --- ZMIANA: NOWA, OSTATECZNA ARCHITEKTURA STARTOWA ---
+    // --- ZMIANA: NOWA ARCHITEKTURA STARTOWA ---
 
     // Ta funkcja jest wywoływana TYLKO po kliknięciu "Start"
-    function initGame() {
+    async function initGame() {
+        // Usuwamy listenery, żeby uniknąć wielokrotnego uruchomienia
         startScreen.removeEventListener('click', initGame);
         startScreen.removeEventListener('touchstart', initGame);
+        startScreen.style.cursor = 'default';
+        startScreenText.innerHTML = 'Ładowanie dźwięków...';
 
-        // KROK 1: Zniszcz stary kontekst audio, jeśli istnieje
-        if (audioContext && audioContext.state !== 'closed') {
-            audioContext.close();
-        }
-        
-        // KROK 2: Stwórz nowy, świeży kontekst audio i spróbuj go wznowić
-        audioContext = new (window.AudioContext || window.webkitAudioContext)();
-        audioContext.resume().then(() => {
-            console.log("AudioContext gotowy i działa. Stan:", audioContext.state);
+        try {
+            // KROK 1: Stwórz AudioContext w odpowiedzi na interakcję użytkownika
+            audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            if (audioContext.state === 'suspended') {
+                await audioContext.resume();
+            }
+            
+            // KROK 2: Załaduj i zdekoduj wszystkie dźwięki używając głównego AudioContext
+            const soundUrls = {
+                shoot: 'assets/laser_shoot.wav', lifeLost: 'assets/craaash.wav',
+                gameOver: 'assets/Ohnoo.wav', superShot: 'assets/bigbomb.wav',
+                letsgo: 'assets/letsgo.wav'
+            };
+
+            const soundPromises = Object.entries(soundUrls).map(async ([name, url]) => {
+                const response = await fetch(url);
+                const arrayBuffer = await response.arrayBuffer();
+                const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+                soundBuffers[name] = audioBuffer;
+            });
+
+            await Promise.all(soundPromises);
+            
             audioInitialized = true;
-            playSound('letsgo'); // Zagraj dźwięk potwierdzenia
-        }).catch(e => {
-            console.error("Nie udało się wznowić AudioContext:", e);
-        });
+            console.log("AudioContext i dźwięki gotowe. Stan:", audioContext.state);
+            
+            // KROK 3: Uruchom grę po załadowaniu dźwięków
+            playSound('letsgo');
+            startScreen.style.display = 'none';
+            canvas.style.display = 'block';
+            gameUiElements.style.display = 'block';
+            resetGame();
 
-        startScreen.style.display = 'none';
-        canvas.style.display = 'block';
-        gameUiElements.style.display = 'block';
-        resetGame();
+        } catch (e) {
+            console.error("Nie udało się zainicjować dźwięku lub gry:", e);
+            startScreenText.innerHTML = 'Błąd inicjalizacji audio. Odśwież stronę.';
+            // Opcjonalnie można by pozwolić grać bez dźwięku, ale na razie pokazujemy błąd.
+        }
     }
     
-    // Ładuje wszystkie zasoby w tle, zaraz po załadowaniu strony
+    // Ładuje zasoby, które nie wymagają interakcji użytkownika (np. grafika)
     async function loadInitialAssets() {
         try {
+            startScreenText.innerHTML = 'Ładowanie grafiki...';
             const imagePromise = new Promise((resolve, reject) => {
                 shipImage.onload = resolve;
                 shipImage.onerror = reject;
                 shipImage.src = 'assets/ship.png';
             });
 
-            // Użyj tymczasowego kontekstu do dekodowania w tle
-            const tempAudioCtx = new (window.OfflineAudioContext || window.webkitOfflineAudioContext)(1, 1, 44100);
-            const soundUrls = {
-                shoot: 'assets/laser_shoot.wav', lifeLost: 'assets/craaash.wav',
-                gameOver: 'assets/Ohnoo.wav', superShot: 'assets/bigbomb.wav',
-                letsgo: 'assets/letsgo.wav'
-            };
-            const soundPromises = Object.entries(soundUrls).map(([name, url]) =>
-                fetch(url)
-                    .then(response => response.arrayBuffer())
-                    .then(arrayBuffer => tempAudioCtx.decodeAudioData(arrayBuffer))
-                    .then(audioBuffer => { soundBuffers[name] = audioBuffer; })
-            );
-
-            await Promise.all([imagePromise, ...soundPromises]);
+            await imagePromise; // Czekaj tylko na obrazek
             
             startScreenText.innerHTML = 'Gra gotowa! Dotknij, aby grać.';
             startScreen.style.cursor = 'pointer';
@@ -152,8 +160,8 @@ window.addEventListener('load', function() {
             startScreen.addEventListener('touchstart', initGame);
 
         } catch (error) {
-            console.error("Błąd podczas ładowania zasobów:", error);
-            startScreenText.innerHTML = 'Błąd ładowania zasobów. Odśwież stronę.';
+            console.error("Błąd podczas ładowania zasobów graficznych:", error);
+            startScreenText.innerHTML = 'Błąd ładowania grafiki. Odśwież stronę.';
         }
     }
 
