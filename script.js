@@ -1,7 +1,7 @@
-// Wersja 4.1
+// Wersja 5.0
 window.addEventListener('load', function() {
     // --- GŁÓWNE ZMIENNE I KONFIGURACJA ---
-    const version = '4.1';
+    const version = '5.0';
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
     const startScreen = document.getElementById('startScreen');
@@ -37,19 +37,30 @@ window.addEventListener('load', function() {
     document.body.appendChild(gameUiElements);
     document.body.appendChild(gameOverScreen);
 
-    // --- ZMIANA: Powrót do systemu <audio> z pulą i odblokowaniem ---
+    // --- ZASOBY GRY I SYSTEM AUDIO (Hybrydowy) ---
     const shipImage = new Image();
-    const soundPoolSize = 5;
-    const shootSounds = [];
-    for (let i = 0; i < soundPoolSize; i++) {
-        shootSounds.push(new Audio('assets/laser_shoot.mp3'));
-    }
+    let audioContext;
+    let shootSoundBuffer; // Tylko jeden bufor dla Web Audio API
+    let audioInitialized = false;
+
+    // Proste tagi <audio> dla rzadkich dźwięków
     const lifeLostSound = new Audio('assets/craaash.mp3');
     const gameOverSound = new Audio('assets/Ohnoo.mp3');
     const superShotSound = new Audio('assets/bigbomb.mp3');
-    const allSounds = [...shootSounds, lifeLostSound, gameOverSound, superShotSound];
-    allSounds.forEach(sound => { sound.volume = 0.4; });
-    let currentSoundIndex = 0;
+    const letsGoSound = new Audio('assets/letsgo.mp3');
+    const uiSounds = [lifeLostSound, gameOverSound, superShotSound, letsGoSound];
+    uiSounds.forEach(sound => sound.volume = 0.5);
+
+    // Funkcja do odtwarzania dźwięku strzału (szybka)
+    function playShootSound() {
+        if (!audioInitialized) return;
+        const buffer = shootSoundBuffer;
+        if (!audioContext || !buffer || audioContext.state !== 'running') return; 
+        const source = audioContext.createBufferSource(); 
+        source.buffer = buffer; 
+        source.connect(audioContext.destination); 
+        source.start(0); 
+    }
     
     // --- ZMIENNE STANU GRY ---
     let score, lives, missedEnemies, gameOver, animationFrameId, lastTime = 0;
@@ -58,7 +69,7 @@ window.addEventListener('load', function() {
     let baseEnemyInterval, enemySpawnMultiplier, enemySpawnTimer;
     let superShotCharges, maxSuperShotCharges;
 
-    // --- KLASY I LOGIKA GRY (BEZ ZMIAN) ---
+    // --- KLASY I LOGIKA GRY ---
     class Player { constructor() { this.width = 50; this.height = 40; this.x = canvas.width / 2 - this.width / 2; this.bottomLimit = 100; this.y = canvas.height - this.height - this.bottomLimit; } draw(context) { context.drawImage(shipImage, this.x, this.y, this.width, this.height); } update(inputX) { if (inputX !== null) { this.x = inputX - this.width / 2; } if (this.x < 0) this.x = 0; if (this.x > canvas.width - this.width) this.x = canvas.width - this.width; } }
     class Bullet { constructor(x, y, color = 'white', speed = 500, angle = 0) { this.x = x; this.y = y; this.width = 5; this.height = 15; this.color = color; this.speedX = Math.sin(angle) * speed; this.speedY = -Math.cos(angle) * speed; this.markedForDeletion = false; } update(deltaTime) { this.x += this.speedX * deltaTime; this.y += this.speedY * deltaTime; if (this.y < 0) this.markedForDeletion = true; } draw(context) { context.fillStyle = this.color; context.fillRect(this.x, this.y, this.width, this.height); } }
     class Enemy { constructor() { this.width = 50; this.height = 45; this.x = Math.random() * (canvas.width - this.width); this.y = -this.height; this.speed = (Math.random() * 100 + enemyBaseSpeed) * enemySpeedMultiplier; this.markedForDeletion = false; } draw(context) { context.drawImage(shipImage, this.x, this.y, this.width, this.height); } update(deltaTime) { this.y += this.speed * deltaTime; if (this.y > canvas.height) { this.markedForDeletion = true; missedEnemies++; } } }
@@ -73,74 +84,133 @@ window.addEventListener('load', function() {
     superShotBtn.addEventListener('click', () => { if (!gameOver && player && superShotCharges > 0) { shootSuper(); }});
     function updateSuperShotUI() { superShotBtn.innerText = `SUPER STRZAŁ (${superShotCharges})`; superShotBtn.disabled = superShotCharges <= 0; }
     
-    function playShootSound() { const sound = shootSounds[currentSoundIndex]; sound.currentTime = 0; sound.play(); currentSoundIndex = (currentSoundIndex + 1) % soundPoolSize; }
-    function shootTriple() { playShootSound(); const bulletX = player.x + player.width / 2 - 2.5; if (currentLevel < 3) { setTimeout(() => { if (!gameOver) bullets.push(new Bullet(bulletX, player.y)) }, 0); setTimeout(() => { if (!gameOver) bullets.push(new Bullet(bulletX, player.y)) }, 100); setTimeout(() => { if (!gameOver) bullets.push(new Bullet(bulletX, player.y)) }, 200); } else { const spreadAngle = 0.15; bullets.push(new Bullet(bulletX, player.y, 'white', 500, 0)); bullets.push(new Bullet(bulletX, player.y, 'white', 500, -spreadAngle)); bullets.push(new Bullet(bulletX, player.y, 'white', 500, spreadAngle)); } }
-    function shootSuper() { superShotSound.currentTime = 0; superShotSound.play(); superShotCharges--; updateSuperShotUI(); const bulletCount = 30; for (let i = 0; i < bulletCount; i++) { const angle = (Math.PI * 2 / bulletCount) * i; bullets.push(new Bullet(player.x + player.width / 2, player.y + player.height / 2, 'red', 300, angle)); } }
+    function shootTriple() { 
+        playShootSound(); // Używa szybkiego Web Audio API
+        const bulletX = player.x + player.width / 2 - 2.5; 
+        if (currentLevel < 3) { setTimeout(() => { if (!gameOver) bullets.push(new Bullet(bulletX, player.y)) }, 0); setTimeout(() => { if (!gameOver) bullets.push(new Bullet(bulletX, player.y)) }, 100); setTimeout(() => { if (!gameOver) bullets.push(new Bullet(bulletX, player.y)) }, 200); } 
+        else { const spreadAngle = 0.15; bullets.push(new Bullet(bulletX, player.y, 'white', 500, 0)); bullets.push(new Bullet(bulletX, player.y, 'white', 500, -spreadAngle)); bullets.push(new Bullet(bulletX, player.y, 'white', 500, spreadAngle)); } 
+    }
+    
+    function shootSuper() { 
+        superShotSound.currentTime = 0; superShotSound.play(); // Używa <audio>
+        superShotCharges--; 
+        updateSuperShotUI(); 
+        const bulletCount = 30; 
+        for (let i = 0; i < bulletCount; i++) { const angle = (Math.PI * 2 / bulletCount) * i; bullets.push(new Bullet(player.x + player.width / 2, player.y + player.height / 2, 'red', 300, angle)); } 
+    }
+    
     function handleGameElements(deltaTime) { const currentEnemyInterval = baseEnemyInterval / enemySpawnMultiplier; if (enemySpawnTimer > currentEnemyInterval) { enemies.push(new Enemy()); enemySpawnTimer = 0; } else { enemySpawnTimer += deltaTime * 1000; } bullets.forEach(bullet => bullet.update(deltaTime)); enemies.forEach(enemy => enemy.update(deltaTime)); for (let i = bullets.length - 1; i >= 0; i--) { for (let j = enemies.length - 1; j >= 0; j--) { if (bullets[i] && enemies[j] && checkCollision(bullets[i], enemies[j])) { bullets[i].markedForDeletion = true; enemies[j].markedForDeletion = true; score += 10; } } } bullets = bullets.filter(bullet => !bullet.markedForDeletion); enemies = enemies.filter(enemy => !enemy.markedForDeletion); bullets.forEach(bullet => bullet.draw(ctx)); enemies.forEach(enemy => enemy.draw(ctx)); }
     function checkCollision(rect1, rect2) { return (rect1.x < rect2.x + rect2.width && rect1.x + rect1.width > rect2.x && rect1.y < rect2.y + rect2.height && rect1.y + rect1.height > rect2.y); }
-    function checkGameState() { if (missedEnemies >= 3) { lives--; missedEnemies = 0; if (lives > 0) { lifeLostSound.currentTime = 0; lifeLostSound.play(); } } if (lives <= 0 && !gameOver) { gameOver = true; } }
+    
+    function checkGameState() { 
+        if (missedEnemies >= 3) { 
+            lives--; 
+            missedEnemies = 0; 
+            if (lives > 0) { 
+                lifeLostSound.currentTime = 0; lifeLostSound.play(); // Używa <audio>
+            } 
+        } 
+        if (lives <= 0 && !gameOver) { 
+            gameOver = true; 
+        } 
+    }
+    
     function updateUI() { scoreEl.innerHTML = `WYNIK: ${score}`; levelEl.innerHTML = `POZIOM: ${currentLevel}`; livesEl.innerHTML = `ŻYCIA: ${lives}`; updateSuperShotUI(); }
     function showLevelUpMessage(level) { const levelUpEl = document.createElement('div'); levelUpEl.innerText = `LEVEL ${level}`; levelUpEl.style.position = 'absolute'; levelUpEl.style.left = '50%'; levelUpEl.style.top = '50%'; levelUpEl.style.transform = 'translate(-50%, -50%)'; levelUpEl.style.color = '#6c6cff'; levelUpEl.style.fontSize = '5em'; levelUpEl.style.textShadow = '3px 3px 6px #000'; levelUpEl.style.opacity = '1'; levelUpEl.style.transition = 'opacity 1s ease-out'; levelUpEl.style.userSelect = 'none'; levelUpEl.style.webkitUserSelect = 'none'; document.body.appendChild(levelUpEl); setTimeout(() => { levelUpEl.style.opacity = '0'; setTimeout(() => { document.body.removeChild(levelUpEl); }, 1000); }, 1500); }
     function levelUp(newLevel) { currentLevel = newLevel; showLevelUpMessage(currentLevel); enemySpeedMultiplier *= 1.2; enemySpawnMultiplier *= 1.2; if (currentLevel === 3) { maxSuperShotCharges = 3; } superShotCharges = maxSuperShotCharges; }
     function checkLevelUp() { if (currentLevel === 1 && score >= 200) { levelUp(2); } else if (currentLevel === 2 && score >= 500) { levelUp(3); } }
-    function animate(timestamp) { if (!lastTime) lastTime = timestamp; const deltaTime = (timestamp - lastTime) / 1000; lastTime = timestamp; ctx.clearRect(0, 0, canvas.width, canvas.height); if (player) { player.update(input.x); player.draw(ctx); } handleGameElements(deltaTime); checkGameState(); updateUI(); checkLevelUp(); if (gameOver) { if (gameOverScreen.style.display !== 'flex') { gameOverSound.currentTime = 0; gameOverSound.play(); setTimeout(() => { gameOverScreen.style.display = 'flex'; finalScoreEl.innerText = score; }, 500); } } else { animationFrameId = requestAnimationFrame(animate); } }
     
-    function resetGame() { 
-        if (animationFrameId) cancelAnimationFrame(animationFrameId);
-        score = 0; lives = 3; missedEnemies = 0; gameOver = false;
-        bullets = []; enemies = [];
-        currentLevel = 1; enemyBaseSpeed = 100; enemySpeedMultiplier = 1.0;
-        baseEnemyInterval = 1000; enemySpawnMultiplier = 1.0; enemySpawnTimer = 0;
-        maxSuperShotCharges = 2; superShotCharges = maxSuperShotCharges;
-        gameOverScreen.style.display = 'none';
-        resizeGame();
-        player = new Player();
-        input.x = canvas.width / 2;
-        lastTime = 0;
-        updateUI();
-        animate(0);
+    function animate(timestamp) { 
+        if (!lastTime) lastTime = timestamp; 
+        const deltaTime = (timestamp - lastTime) / 1000; 
+        lastTime = timestamp; 
+        ctx.clearRect(0, 0, canvas.width, canvas.height); 
+        if (player) { player.update(input.x); player.draw(ctx); } 
+        handleGameElements(deltaTime); 
+        checkGameState(); 
+        updateUI(); 
+        checkLevelUp(); 
+        if (gameOver) { 
+            if (gameOverScreen.style.display !== 'flex') { 
+                gameOverSound.currentTime = 0; gameOverSound.play(); // Używa <audio>
+                setTimeout(() => { 
+                    gameOverScreen.style.display = 'flex'; 
+                    finalScoreEl.innerText = score; 
+                }, 500); 
+            } 
+        } else { 
+            animationFrameId = requestAnimationFrame(animate); 
+        } 
     }
+    
+    function resetGame() { if (animationFrameId) cancelAnimationFrame(animationFrameId); score = 0; lives = 3; missedEnemies = 0; gameOver = false; bullets = []; enemies = []; currentLevel = 1; enemyBaseSpeed = 100; enemySpeedMultiplier = 1.0; baseEnemyInterval = 1000; enemySpawnMultiplier = 1.0; enemySpawnTimer = 0; maxSuperShotCharges = 2; superShotCharges = maxSuperShotCharges; gameOverScreen.style.display = 'none'; resizeGame(); player = new Player(); input.x = canvas.width / 2; lastTime = 0; updateUI(); animate(0); }
 
-    // --- ZMIANA: NOWA, UPROSZCZONA LOGIKA STARTOWA ---
+    // --- ZMIANA: NOWA LOGIKA STARTOWA ---
 
-    // Funkcja wywoływana po kliknięciu "Start"
+    // Ta funkcja jest wywoływana TYLKO po kliknięciu "Start"
     function initGame() {
         startScreen.removeEventListener('click', initGame);
         startScreen.removeEventListener('touchstart', initGame);
         
-        // Krok 1: Spróbuj odtworzyć i zatrzymać każdy dźwięk, aby go "odblokować"
-        allSounds.forEach(sound => {
+        // Krok 1: Spróbuj odtworzyć i zatrzymać wszystkie dźwięki <audio>, aby je odblokować
+        [...uiSounds].forEach(sound => {
             const playPromise = sound.play();
             if (playPromise !== undefined) {
                 playPromise.then(() => {
                     sound.pause();
                     sound.currentTime = 0;
-                }).catch(() => {
-                    // Ignorujemy błędy, bo niektóre przeglądarki mogą je zgłaszać
-                    // a i tak odblokować audio kontekst.
+                }).catch(error => {
+                    console.warn(`Nie można było "odblokować" dźwięku ${sound.src}, ale to może być normalne.`, error);
                 });
             }
         });
+        
+        // Krok 2: Stwórz i wznów AudioContext dla dźwięku strzału
+        if (!audioContext) {
+            audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        if (audioContext.state === 'suspended') {
+            audioContext.resume();
+        }
 
-        // Krok 2: Uruchom grę
+        // Krok 3: Uruchom grę
         startScreen.style.display = 'none';
         canvas.style.display = 'block';
         gameUiElements.style.display = 'block';
         resetGame();
     }
     
-    // Ładuje tylko obrazek, bo dźwięki <audio> nie muszą być w pełni załadowane
-    function loadInitialAssets() {
-        shipImage.onload = () => {
+    // Ładuje wszystkie zasoby w tle, od razu po załadowaniu strony
+    async function loadInitialAssets() {
+        try {
+            const imagePromise = new Promise((resolve, reject) => {
+                shipImage.onload = resolve;
+                shipImage.onerror = reject;
+                shipImage.src = 'assets/ship.png';
+            });
+
+            // Musimy załadować tylko JEDEN dźwięk dla Web Audio API
+            const shootSoundPromise = fetch('assets/laser_shoot.mp3')
+                .then(response => response.arrayBuffer())
+                .then(arrayBuffer => {
+                    // Dekodujemy później, po stworzeniu kontekstu
+                    const tempCtx = new (window.AudioContext || window.webkitAudioContext)();
+                    return tempCtx.decodeAudioData(arrayBuffer);
+                })
+                .then(audioBuffer => { shootSoundBuffer = audioBuffer; });
+
+
+            await Promise.all([imagePromise, shootSoundPromise]);
+            
             startScreenText.innerHTML = 'Gra gotowa! Dotknij, aby grać.';
             startScreen.style.cursor = 'pointer';
             startScreen.addEventListener('click', initGame);
             startScreen.addEventListener('touchstart', initGame);
-        };
-        shipImage.onerror = () => {
-            startScreenText.innerHTML = 'Błąd ładowania grafiki. Odśwież stronę.';
-        };
-        shipImage.src = 'assets/ship.png';
+
+        } catch (error) {
+            console.error("Błąd podczas ładowania zasobów:", error);
+            startScreenText.innerHTML = 'Błąd ładowania zasobów. Odśwież stronę.';
+        }
     }
 
     // --- PUNKT WEJŚCIA APLIKACJI ---
