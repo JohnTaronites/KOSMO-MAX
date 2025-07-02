@@ -1,10 +1,11 @@
-// Wersja 4.0
+// Wersja 4.1
 window.addEventListener('load', function() {
     // --- GŁÓWNE ZMIENNE I KONFIGURACJA ---
-    const version = '4.0';
+    const version = '4.1';
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
     const startScreen = document.getElementById('startScreen');
+    const startScreenText = startScreen.querySelector('p');
     const versionDisplay = document.getElementById('version-display');
     versionDisplay.innerText = `v${version}`;
 
@@ -41,7 +42,7 @@ window.addEventListener('load', function() {
     const soundPoolSize = 5;
     const shootSounds = [];
     for (let i = 0; i < soundPoolSize; i++) {
-        shootSounds.push(new Audio('assets/laser_shoot.mp3')); // Używamy .mp3
+        shootSounds.push(new Audio('assets/laser_shoot.mp3'));
     }
     const lifeLostSound = new Audio('assets/craaash.mp3');
     const gameOverSound = new Audio('assets/Ohnoo.mp3');
@@ -100,7 +101,7 @@ window.addEventListener('load', function() {
         animate(0);
     }
 
-    // --- ZMIANA: NOWA, OSTATECZNA ARCHITEKTURA STARTOWA ---
+    // --- ZMIANA: NOWA, UPROSZCZONA LOGIKA STARTOWA ---
 
     // Funkcja wywoływana po kliknięciu "Start"
     function initGame() {
@@ -108,10 +109,17 @@ window.addEventListener('load', function() {
         startScreen.removeEventListener('touchstart', initGame);
         
         // Krok 1: Spróbuj odtworzyć i zatrzymać każdy dźwięk, aby go "odblokować"
-        // Używamy .catch(), aby zignorować błędy, jeśli przeglądarka i tak je zablokuje
         allSounds.forEach(sound => {
-            sound.play().catch(() => {});
-            sound.pause();
+            const playPromise = sound.play();
+            if (playPromise !== undefined) {
+                playPromise.then(() => {
+                    sound.pause();
+                    sound.currentTime = 0;
+                }).catch(() => {
+                    // Ignorujemy błędy, bo niektóre przeglądarki mogą je zgłaszać
+                    // a i tak odblokować audio kontekst.
+                });
+            }
         });
 
         // Krok 2: Uruchom grę
@@ -121,30 +129,18 @@ window.addEventListener('load', function() {
         resetGame();
     }
     
-    // Ładuje wszystkie zasoby w tle
+    // Ładuje tylko obrazek, bo dźwięki <audio> nie muszą być w pełni załadowane
     function loadInitialAssets() {
-        const imagePromise = new Promise((resolve, reject) => {
-            shipImage.onload = resolve;
-            shipImage.onerror = reject;
-            shipImage.src = 'assets/ship.png';
-        });
-
-        // Czekamy, aż przeglądarka uzna, że dźwięki są gotowe do odtwarzania
-        const soundPromises = allSounds.map(sound => 
-            new Promise((resolve) => {
-                sound.addEventListener('canplaythrough', resolve, { once: true });
-            })
-        );
-
-        Promise.all([imagePromise, ...soundPromises]).then(() => {
+        shipImage.onload = () => {
             startScreenText.innerHTML = 'Gra gotowa! Dotknij, aby grać.';
             startScreen.style.cursor = 'pointer';
             startScreen.addEventListener('click', initGame);
             startScreen.addEventListener('touchstart', initGame);
-        }).catch(error => {
-            console.error("Błąd ładowania zasobów:", error);
-            startScreenText.innerHTML = 'Błąd ładowania zasobów. Odśwież stronę.';
-        });
+        };
+        shipImage.onerror = () => {
+            startScreenText.innerHTML = 'Błąd ładowania grafiki. Odśwież stronę.';
+        };
+        shipImage.src = 'assets/ship.png';
     }
 
     // --- PUNKT WEJŚCIA APLIKACJI ---
