@@ -1,7 +1,7 @@
-// Wersja 3.4
+// Wersja 3.5
 window.addEventListener('load', function() {
     // --- GŁÓWNE ZMIENNE I KONFIGURACJA ---
-    const version = '3.4'; // Zmiana wersji
+    const version = '3.5'; // Zmiana wersji
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
     const startScreen = document.getElementById('startScreen');
@@ -94,9 +94,16 @@ window.addEventListener('load', function() {
 
     // --- ZMIANA: NOWA ARCHITEKTURA STARTOWA ---
 
-    // Ta funkcja jest wywoływana TYLKO po kliknięciu "Start"
+    // Dodaj przed funkcją initGame()
+    function unlockAudioContext() {
+        if (audioContext && audioContext.state === 'suspended') {
+            return audioContext.resume();
+        }
+        return Promise.resolve();
+    }
+
+    // Zmodyfikuj funkcję initGame()
     async function initGame() {
-        // Usuwamy listenery, żeby uniknąć wielokrotnego uruchomienia
         startScreen.removeEventListener('click', initGame);
         startScreen.removeEventListener('touchstart', initGame);
         startScreen.style.cursor = 'default';
@@ -105,14 +112,23 @@ window.addEventListener('load', function() {
         try {
             // KROK 1: Stwórz AudioContext w odpowiedzi na interakcję użytkownika
             audioContext = new (window.AudioContext || window.webkitAudioContext)();
-            if (audioContext.state === 'suspended') {
-                await audioContext.resume();
-            }
             
-            // KROK 2: Załaduj i zdekoduj wszystkie dźwięki używając głównego AudioContext
+            // KROK 2: Natychmiast odblokuj AudioContext
+            await unlockAudioContext();
+            
+            // KROK 3: Zagraj cichy dźwięk aby "rozgrzać" AudioContext na iOS
+            const buffer = audioContext.createBuffer(1, 1, 22050);
+            const source = audioContext.createBufferSource();
+            source.buffer = buffer;
+            source.connect(audioContext.destination);
+            source.start(0);
+            
+            // KROK 4: Załaduj dźwięki
             const soundUrls = {
-                shoot: 'assets/laser_shoot.wav', lifeLost: 'assets/craaash.wav',
-                gameOver: 'assets/Ohnoo.wav', superShot: 'assets/bigbomb.wav',
+                shoot: 'assets/laser_shoot.wav', 
+                lifeLost: 'assets/craaash.wav',
+                gameOver: 'assets/Ohnoo.wav', 
+                superShot: 'assets/bigbomb.wav',
                 letsgo: 'assets/letsgo.wav'
             };
 
@@ -128,7 +144,7 @@ window.addEventListener('load', function() {
             audioInitialized = true;
             console.log("AudioContext i dźwięki gotowe. Stan:", audioContext.state);
             
-            // KROK 3: Uruchom grę po załadowaniu dźwięków
+            // KROK 5: Uruchom grę
             playSound('letsgo');
             startScreen.style.display = 'none';
             canvas.style.display = 'block';
@@ -138,7 +154,6 @@ window.addEventListener('load', function() {
         } catch (e) {
             console.error("Nie udało się zainicjować dźwięku lub gry:", e);
             startScreenText.innerHTML = 'Błąd inicjalizacji audio. Odśwież stronę.';
-            // Opcjonalnie można by pozwolić grać bez dźwięku, ale na razie pokazujemy błąd.
         }
     }
     
