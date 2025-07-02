@@ -1,17 +1,16 @@
-// Wersja 5.1
+// Wersja 6.0
 window.addEventListener('load', function() {
     // --- GŁÓWNE ZMIENNE I KONFIGURACJA ---
-    const version = '5.1';
+    const version = '6.0';
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
     const startScreen = document.getElementById('startScreen');
-    const startScreenText = startScreen.querySelector('p');
+    const startButton = document.getElementById('startButton');
+    const gameContainer = document.getElementById('gameContainer');
     const versionDisplay = document.getElementById('version-display');
     versionDisplay.innerText = `v${version}`;
 
-    // --- TWORZENIE ELEMENTÓW INTERFEJSU (UI) ---
-    const gameUiElements = document.createElement('div');
-    gameUiElements.style.display = 'none';
+    // --- UI TWORZONE W JAVASCRIPT ---
     const uiContainer = document.createElement('div');
     uiContainer.style.position = 'absolute'; uiContainer.style.left = '0'; uiContainer.style.top = '0'; uiContainer.style.width = '100%'; uiContainer.style.display = 'flex'; uiContainer.style.justifyContent = 'space-between'; uiContainer.style.padding = '10px 20px'; uiContainer.style.color = 'white'; uiContainer.style.fontFamily = 'Segoe UI, Tahoma, sans-serif'; uiContainer.style.fontSize = '20px'; uiContainer.style.textShadow = '2px 2px 4px #000'; uiContainer.style.pointerEvents = 'none';
     const scoreEl = document.createElement('div');
@@ -30,36 +29,17 @@ window.addEventListener('load', function() {
     finalScoreText.appendChild(finalScoreEl);
     const newGameBtn = document.createElement('button');
     newGameBtn.innerText = 'NOWA GRA'; newGameBtn.style.marginTop = '30px'; newGameBtn.style.padding = '15px 30px'; newGameBtn.style.fontSize = '1.2em'; newGameBtn.style.cursor = 'pointer'; newGameBtn.style.backgroundColor = '#4CAF50'; newGameBtn.style.color = 'white'; newGameBtn.style.border = 'none'; newGameBtn.style.borderRadius = '5px';
-    newGameBtn.addEventListener('click', resetGame);
     gameOverScreen.appendChild(gameOverTitle); gameOverScreen.appendChild(finalScoreText); gameOverScreen.appendChild(newGameBtn);
-    gameUiElements.appendChild(uiContainer);
-    gameUiElements.appendChild(superShotBtn);
-    document.body.appendChild(gameUiElements);
-    document.body.appendChild(gameOverScreen);
+    gameContainer.appendChild(uiContainer);
+    gameContainer.appendChild(superShotBtn);
+    gameContainer.appendChild(gameOverScreen);
 
-    // --- ZASOBY GRY (System Hybrydowy) ---
+    // --- ZASOBY GRY I SYSTEM AUDIO ---
     const shipImage = new Image();
     let audioContext;
-    let shootSoundBuffer; 
-    let audioInitialized = false;
-
-    // Proste tagi <audio> dla rzadkich dźwięków
-    const lifeLostSound = new Audio('assets/craaash.mp3');
-    const gameOverSound = new Audio('assets/Ohnoo.mp3');
-    const superShotSound = new Audio('assets/bigbomb.mp3');
-    const letsGoSound = new Audio('assets/letsgo.mp3');
-    [lifeLostSound, gameOverSound, superShotSound, letsGoSound].forEach(sound => { sound.volume = 0.5; });
-
-    // Funkcja do odtwarzania dźwięku strzału (szybka)
-    function playShootSound() {
-        if (!audioInitialized) return;
-        const buffer = shootSoundBuffer; 
-        if (!audioContext || !buffer || audioContext.state !== 'running') return; 
-        const source = audioContext.createBufferSource(); 
-        source.buffer = buffer; 
-        source.connect(audioContext.destination); 
-        source.start(0); 
-    }
+    let soundBuffers = {}; 
+    
+    function playSound(name) { const buffer = soundBuffers[name]; if (!audioContext || !buffer || audioContext.state !== 'running') return; const source = audioContext.createBufferSource(); source.buffer = buffer; source.connect(audioContext.destination); source.start(0); }
     
     // --- ZMIENNE STANU GRY ---
     let score, lives, missedEnemies, gameOver, animationFrameId, lastTime = 0;
@@ -82,127 +62,104 @@ window.addEventListener('load', function() {
     newGameBtn.addEventListener('click', resetGame);
     superShotBtn.addEventListener('click', () => { if (!gameOver && player && superShotCharges > 0) { shootSuper(); }});
     function updateSuperShotUI() { superShotBtn.innerText = `SUPER STRZAŁ (${superShotCharges})`; superShotBtn.disabled = superShotCharges <= 0; }
-    
-    function shootTriple() { 
-        playShootSound(); 
-        const bulletX = player.x + player.width / 2 - 2.5; 
-        if (currentLevel < 3) { setTimeout(() => { if (!gameOver) bullets.push(new Bullet(bulletX, player.y)) }, 0); setTimeout(() => { if (!gameOver) bullets.push(new Bullet(bulletX, player.y)) }, 100); setTimeout(() => { if (!gameOver) bullets.push(new Bullet(bulletX, player.y)) }, 200); } 
-        else { const spreadAngle = 0.15; bullets.push(new Bullet(bulletX, player.y, 'white', 500, 0)); bullets.push(new Bullet(bulletX, player.y, 'white', 500, -spreadAngle)); bullets.push(new Bullet(bulletX, player.y, 'white', 500, spreadAngle)); } 
-    }
-    
-    function shootSuper() { 
-        superShotSound.currentTime = 0; superShotSound.play(); 
-        superShotCharges--; 
-        updateSuperShotUI(); 
-        const bulletCount = 30; 
-        for (let i = 0; i < bulletCount; i++) { const angle = (Math.PI * 2 / bulletCount) * i; bullets.push(new Bullet(player.x + player.width / 2, player.y + player.height / 2, 'red', 300, angle)); } 
-    }
-    
+    function shootTriple() { playSound('shoot'); const bulletX = player.x + player.width / 2 - 2.5; if (currentLevel < 3) { setTimeout(() => { if (!gameOver) bullets.push(new Bullet(bulletX, player.y)) }, 0); setTimeout(() => { if (!gameOver) bullets.push(new Bullet(bulletX, player.y)) }, 100); setTimeout(() => { if (!gameOver) bullets.push(new Bullet(bulletX, player.y)) }, 200); } else { const spreadAngle = 0.15; bullets.push(new Bullet(bulletX, player.y, 'white', 500, 0)); bullets.push(new Bullet(bulletX, player.y, 'white', 500, -spreadAngle)); bullets.push(new Bullet(bulletX, player.y, 'white', 500, spreadAngle)); } }
+    function shootSuper() { playSound('superShot'); superShotCharges--; updateSuperShotUI(); const bulletCount = 30; for (let i = 0; i < bulletCount; i++) { const angle = (Math.PI * 2 / bulletCount) * i; bullets.push(new Bullet(player.x + player.width / 2, player.y + player.height / 2, 'red', 300, angle)); } }
     function handleGameElements(deltaTime) { const currentEnemyInterval = baseEnemyInterval / enemySpawnMultiplier; if (enemySpawnTimer > currentEnemyInterval) { enemies.push(new Enemy()); enemySpawnTimer = 0; } else { enemySpawnTimer += deltaTime * 1000; } bullets.forEach(bullet => bullet.update(deltaTime)); enemies.forEach(enemy => enemy.update(deltaTime)); for (let i = bullets.length - 1; i >= 0; i--) { for (let j = enemies.length - 1; j >= 0; j--) { if (bullets[i] && enemies[j] && checkCollision(bullets[i], enemies[j])) { bullets[i].markedForDeletion = true; enemies[j].markedForDeletion = true; score += 10; } } } bullets = bullets.filter(bullet => !bullet.markedForDeletion); enemies = enemies.filter(enemy => !enemy.markedForDeletion); bullets.forEach(bullet => bullet.draw(ctx)); enemies.forEach(enemy => enemy.draw(ctx)); }
     function checkCollision(rect1, rect2) { return (rect1.x < rect2.x + rect2.width && rect1.x + rect1.width > rect2.x && rect1.y < rect2.y + rect2.height && rect1.y + rect1.height > rect2.y); }
-    
-    function checkGameState() { 
-        if (missedEnemies >= 3) { 
-            lives--; 
-            missedEnemies = 0; 
-            if (lives > 0) { 
-                lifeLostSound.currentTime = 0; lifeLostSound.play();
-            } 
-        } 
-        if (lives <= 0 && !gameOver) { 
-            gameOver = true; 
-        } 
-    }
-    
+    function checkGameState() { if (missedEnemies >= 3) { lives--; missedEnemies = 0; if (lives > 0) { playSound('lifeLost'); } } if (lives <= 0 && !gameOver) { gameOver = true; } }
     function updateUI() { scoreEl.innerHTML = `WYNIK: ${score}`; levelEl.innerHTML = `POZIOM: ${currentLevel}`; livesEl.innerHTML = `ŻYCIA: ${lives}`; updateSuperShotUI(); }
     function showLevelUpMessage(level) { const levelUpEl = document.createElement('div'); levelUpEl.innerText = `LEVEL ${level}`; levelUpEl.style.position = 'absolute'; levelUpEl.style.left = '50%'; levelUpEl.style.top = '50%'; levelUpEl.style.transform = 'translate(-50%, -50%)'; levelUpEl.style.color = '#6c6cff'; levelUpEl.style.fontSize = '5em'; levelUpEl.style.textShadow = '3px 3px 6px #000'; levelUpEl.style.opacity = '1'; levelUpEl.style.transition = 'opacity 1s ease-out'; levelUpEl.style.userSelect = 'none'; levelUpEl.style.webkitUserSelect = 'none'; document.body.appendChild(levelUpEl); setTimeout(() => { levelUpEl.style.opacity = '0'; setTimeout(() => { document.body.removeChild(levelUpEl); }, 1000); }, 1500); }
     function levelUp(newLevel) { currentLevel = newLevel; showLevelUpMessage(currentLevel); enemySpeedMultiplier *= 1.2; enemySpawnMultiplier *= 1.2; if (currentLevel === 3) { maxSuperShotCharges = 3; } superShotCharges = maxSuperShotCharges; }
     function checkLevelUp() { if (currentLevel === 1 && score >= 200) { levelUp(2); } else if (currentLevel === 2 && score >= 500) { levelUp(3); } }
+    function animate(timestamp) { if (!lastTime) lastTime = timestamp; const deltaTime = (timestamp - lastTime) / 1000; lastTime = timestamp; ctx.clearRect(0, 0, canvas.width, canvas.height); if (player) { player.update(input.x); player.draw(ctx); } handleGameElements(deltaTime); checkGameState(); updateUI(); checkLevelUp(); if (gameOver) { if (gameOverScreen.style.display !== 'flex') { playSound('gameOver'); setTimeout(() => { gameOverScreen.style.display = 'flex'; finalScoreEl.innerText = score; }, 500); } } else { animationFrameId = requestAnimationFrame(animate); } }
     
-    function animate(timestamp) { 
-        if (!lastTime) lastTime = timestamp; 
-        const deltaTime = (timestamp - lastTime) / 1000; 
-        lastTime = timestamp; 
-        ctx.clearRect(0, 0, canvas.width, canvas.height); 
-        if (player) { player.update(input.x); player.draw(ctx); } 
-        handleGameElements(deltaTime); 
-        checkGameState(); 
-        updateUI(); 
-        checkLevelUp(); 
-        if (gameOver) { 
-            if (gameOverScreen.style.display !== 'flex') { 
-                gameOverSound.currentTime = 0; gameOverSound.play();
-                setTimeout(() => { 
-                    gameOverScreen.style.display = 'flex'; 
-                    finalScoreEl.innerText = score; 
-                }, 500); 
-            } 
-        } else { 
-            animationFrameId = requestAnimationFrame(animate); 
-        } 
+    function resetGame() { 
+        if (animationFrameId) cancelAnimationFrame(animationFrameId);
+        score = 0; lives = 3; missedEnemies = 0; gameOver = false;
+        bullets = []; enemies = [];
+        currentLevel = 1; enemyBaseSpeed = 100; enemySpeedMultiplier = 1.0;
+        baseEnemyInterval = 1000; enemySpawnMultiplier = 1.0; enemySpawnTimer = 0;
+        maxSuperShotCharges = 2; superShotCharges = maxSuperShotCharges;
+        gameOverScreen.style.display = 'none';
+        resizeGame();
+        player = new Player();
+        input.x = canvas.width / 2;
+        lastTime = 0;
+        updateUI();
+        animate(0);
     }
-    
-    function resetGame() { if (animationFrameId) cancelAnimationFrame(animationFrameId); score = 0; lives = 3; missedEnemies = 0; gameOver = false; bullets = []; enemies = []; currentLevel = 1; enemyBaseSpeed = 100; enemySpeedMultiplier = 1.0; baseEnemyInterval = 1000; enemySpawnMultiplier = 1.0; enemySpawnTimer = 0; maxSuperShotCharges = 2; superShotCharges = maxSuperShotCharges; gameOverScreen.style.display = 'none'; resizeGame(); player = new Player(); input.x = canvas.width / 2; lastTime = 0; updateUI(); animate(0); }
 
-    // --- ZMIANA: Czysta i prosta logika startowa ---
+    // --- ZMIANA: OSTATECZNA, NAJPROSTSZA ARCHITEKTURA STARTOWA ---
 
     // Ta funkcja jest wywoływana TYLKO po kliknięciu "Start"
-    function initGame() {
-        startScreen.removeEventListener('click', initGame);
-        startScreen.removeEventListener('touchstart', initGame);
+    function initAndStartGame() {
+        startButton.removeEventListener('click', initAndStartGame);
         
-        // Krok 1: Stwórz AudioContext
+        // Zmień treść przycisku, żeby pokazać, że coś się dzieje
+        startButton.innerText = 'ŁADOWANIE...';
+        startButton.disabled = true;
+
+        // 1. Stwórz AudioContext
         if (!audioContext) {
             audioContext = new (window.AudioContext || window.webkitAudioContext)();
         }
 
-        // Krok 2: Wznów kontekst i w odpowiedzi odtwórz dźwięk startowy
+        // 2. Wznów go. To musi być bezpośrednio w evencie kliknięcia.
         audioContext.resume().then(() => {
-            console.log("AudioContext jest gotowy i działa. Stan:", audioContext.state);
+            console.log("AudioContext jest gotowy. Stan:", audioContext.state);
             audioInitialized = true;
-            letsGoSound.currentTime = 0;
-            letsGoSound.play(); // Odtwórz dźwięk potwierdzenia
+            
+            // 3. Dopiero teraz ładuj wszystkie zasoby
+            loadAllAssets();
+
         }).catch(e => {
             console.error("Nie udało się wznowić AudioContext:", e);
+            // Jeśli audio zawiedzie, i tak spróbuj załadować resztę i uruchomić grę
+            loadAllAssets(true); 
         });
-
-        // Krok 3: Uruchom grę natychmiast
-        startScreen.style.display = 'none';
-        canvas.style.display = 'block';
-        gameUiElements.style.display = 'block';
-        resetGame();
     }
     
-    // Ładuje wszystkie zasoby w tle, od razu po załadowaniu strony
-    async function loadInitialAssets() {
+    // Uruchamia ładowanie zasobów i na końcu gry
+    async function loadAllAssets(audioFailed = false) {
         try {
             const imagePromise = new Promise((resolve, reject) => {
-                shipImage.onload = resolve;
-                shipImage.onerror = reject;
+                shipImage.onload = () => resolve();
+                shipImage.onerror = () => reject(new Error('Błąd ładowania obrazka.'));
                 shipImage.src = 'assets/ship.png';
             });
+            
+            let soundPromises = [];
+            if (!audioFailed) {
+                 const soundUrls = {
+                    shoot: 'assets/laser_shoot.mp3', lifeLost: 'assets/craaash.mp3',
+                    gameOver: 'assets/Ohnoo.mp3', superShot: 'assets/bigbomb.mp3',
+                    letsgo: 'assets/letsgo.mp3'
+                };
+                soundPromises = Object.entries(soundUrls).map(([name, url]) =>
+                    fetch(url)
+                        .then(response => response.arrayBuffer())
+                        .then(arrayBuffer => audioContext.decodeAudioData(arrayBuffer))
+                        .then(audioBuffer => { soundBuffers[name] = audioBuffer; })
+                );
+            }
 
-            // Dekodujemy TYLKO dźwięk strzału, reszta to proste <audio>
-            // Używamy tymczasowego kontekstu, żeby nie tworzyć głównego przed interakcją
-            const tempCtx = new (window.OfflineAudioContext || window.webkitOfflineAudioContext)(1, 1, 44100);
-            const shootSoundPromise = fetch('assets/laser_shoot.mp3')
-                .then(response => response.arrayBuffer())
-                .then(arrayBuffer => tempCtx.decodeAudioData(arrayBuffer))
-                .then(audioBuffer => { shootSoundBuffer = audioBuffer; });
+            // Zaczekaj na WSZYSTKO
+            await Promise.all([imagePromise, ...soundPromises]);
             
-            await Promise.all([imagePromise, shootSoundPromise]);
-            
-            startScreenText.innerHTML = 'Gra gotowa! Dotknij, aby grać.';
-            startScreen.style.cursor = 'pointer';
-            startScreen.addEventListener('click', initGame);
-            startScreen.addEventListener('touchstart', initGame);
+            console.log("Wszystkie zasoby załadowane.");
+            startScreen.style.display = 'none';
+            canvas.style.display = 'block';
+            gameUiElements.style.display = 'block';
+            playSound('letsgo'); // Zagraj dźwięk startowy
+            resetGame();
 
         } catch (error) {
             console.error("Błąd podczas ładowania zasobów:", error);
-            startScreenText.innerHTML = 'Błąd ładowania zasobów. Odśwież stronę.';
+            startScreen.innerHTML = '<h1>Błąd ładowania zasobów.</h1><p>Spróbuj odświeżyć stronę.</p>';
         }
     }
 
     // --- PUNKT WEJŚCIA APLIKACJI ---
-    loadInitialAssets();
+    // Po załadowaniu strony, natychmiast dodaj listener do przycisku start
+    startButton.addEventListener('click', initAndStartGame);
 });
