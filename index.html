@@ -9,10 +9,14 @@
 <body>
     <div id="startScreen">
         <h1>KOSMICZNA STRZELANKA</h1>
-        <p>Kliknij lub dotknij ekranu, aby rozpocząć!</p>
+        <button id="startButton">START</button>
     </div>
-    <canvas id="gameCanvas" style="display: none;"></canvas>
-    <div id="version-display"></div>
+
+    <div id="gameContainer" style="display: none;">
+        <canvas id="gameCanvas"></canvas>
+        <div id="version-display"></div>
+    </div>
+    
     <script src="script.js"></script>
 </body>
 </html>
