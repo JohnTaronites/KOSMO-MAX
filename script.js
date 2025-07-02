@@ -1,7 +1,7 @@
-// Wersja 3.3
+// Wersja 3.4
 window.addEventListener('load', function() {
     // --- GŁÓWNE ZMIENNE I KONFIGURACJA ---
-    const version = '3.3';
+    const version = '3.4';
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
     const startScreen = document.getElementById('startScreen');
@@ -30,6 +30,7 @@ window.addEventListener('load', function() {
     finalScoreText.appendChild(finalScoreEl);
     const newGameBtn = document.createElement('button');
     newGameBtn.innerText = 'NOWA GRA'; newGameBtn.style.marginTop = '30px'; newGameBtn.style.padding = '15px 30px'; newGameBtn.style.fontSize = '1.2em'; newGameBtn.style.cursor = 'pointer'; newGameBtn.style.backgroundColor = '#4CAF50'; newGameBtn.style.color = 'white'; newGameBtn.style.border = 'none'; newGameBtn.style.borderRadius = '5px';
+    newGameBtn.addEventListener('click', resetGame);
     gameOverScreen.appendChild(gameOverTitle); gameOverScreen.appendChild(finalScoreText); gameOverScreen.appendChild(newGameBtn);
     gameUiElements.appendChild(uiContainer);
     gameUiElements.appendChild(superShotBtn);
@@ -38,12 +39,19 @@ window.addEventListener('load', function() {
 
     // --- ZASOBY GRY I SYSTEM AUDIO ---
     const shipImage = new Image();
-    let audioContext;
+    let audioContext; // ZMIANA: Tylko jeden, główny AudioContext
     let soundBuffers = {}; 
     let audioInitialized = false;
-    let rawSoundData = {}; // Przechowuje surowe dane dźwiękowe
     
-    function playSound(name) { if (!audioInitialized) return; const buffer = soundBuffers[name]; if (!audioContext || !buffer || audioContext.state !== 'running') return; const source = audioContext.createBufferSource(); source.buffer = buffer; source.connect(audioContext.destination); source.start(0); }
+    function playSound(name) {
+        if (!audioInitialized) return;
+        const buffer = soundBuffers[name]; 
+        if (!audioContext || !buffer || audioContext.state !== 'running') return; 
+        const source = audioContext.createBufferSource(); 
+        source.buffer = buffer; 
+        source.connect(audioContext.destination); 
+        source.start(0); 
+    }
     
     // --- ZMIENNE STANU GRY ---
     let score, lives, missedEnemies, gameOver, animationFrameId, lastTime = 0;
@@ -100,17 +108,17 @@ window.addEventListener('load', function() {
         startScreen.removeEventListener('click', initGame);
         startScreen.removeEventListener('touchstart', initGame);
 
-        // KROK 1: Zniszcz stary kontekst audio, jeśli istnieje
+        // Zniszcz stary kontekst audio, jeśli istnieje
         if (audioContext && audioContext.state !== 'closed') {
             audioContext.close();
         }
         
-        // KROK 2: Stwórz nowy, świeży kontekst audio i spróbuj go wznowić
+        // Stwórz nowy, świeży kontekst audio i spróbuj go wznowić
         audioContext = new (window.AudioContext || window.webkitAudioContext)();
         audioContext.resume().then(() => {
-            console.log("AudioContext gotowy i działa. Stan:", audioContext.state);
+            console.log("AudioContext jest gotowy i działa. Stan:", audioContext.state);
             audioInitialized = true;
-            playSound('letsgo'); // Zagraj dźwięk potwierdzenia
+            playSound('letsgo');
         }).catch(e => {
             console.error("Nie udało się wznowić AudioContext:", e);
         });
@@ -121,7 +129,7 @@ window.addEventListener('load', function() {
         resetGame();
     }
     
-    // Ładuje wszystkie zasoby w tle, zaraz po załadowaniu strony
+    // Ładuje wszystkie zasoby w tle, od razu po załadowaniu strony
     async function loadInitialAssets() {
         try {
             const imagePromise = new Promise((resolve, reject) => {
@@ -130,7 +138,7 @@ window.addEventListener('load', function() {
                 shipImage.src = 'assets/ship.png';
             });
 
-            // Użyj tymczasowego kontekstu do dekodowania w tle
+            // Użyjemy tymczasowego kontekstu do dekodowania w tle
             const tempAudioCtx = new (window.OfflineAudioContext || window.webkitOfflineAudioContext)(1, 1, 44100);
             const soundUrls = {
                 shoot: 'assets/laser_shoot.wav', lifeLost: 'assets/craaash.wav',
