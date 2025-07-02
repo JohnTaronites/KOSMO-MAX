@@ -1,7 +1,7 @@
-// Wersja 5.0
+// Wersja 5.1
 window.addEventListener('load', function() {
     // --- GŁÓWNE ZMIENNE I KONFIGURACJA ---
-    const version = '5.0';
+    const version = '5.1';
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
     const startScreen = document.getElementById('startScreen');
@@ -37,10 +37,10 @@ window.addEventListener('load', function() {
     document.body.appendChild(gameUiElements);
     document.body.appendChild(gameOverScreen);
 
-    // --- ZASOBY GRY I SYSTEM AUDIO (Hybrydowy) ---
+    // --- ZASOBY GRY (System Hybrydowy) ---
     const shipImage = new Image();
     let audioContext;
-    let shootSoundBuffer; // Tylko jeden bufor dla Web Audio API
+    let shootSoundBuffer; 
     let audioInitialized = false;
 
     // Proste tagi <audio> dla rzadkich dźwięków
@@ -48,13 +48,12 @@ window.addEventListener('load', function() {
     const gameOverSound = new Audio('assets/Ohnoo.mp3');
     const superShotSound = new Audio('assets/bigbomb.mp3');
     const letsGoSound = new Audio('assets/letsgo.mp3');
-    const uiSounds = [lifeLostSound, gameOverSound, superShotSound, letsGoSound];
-    uiSounds.forEach(sound => sound.volume = 0.5);
+    [lifeLostSound, gameOverSound, superShotSound, letsGoSound].forEach(sound => { sound.volume = 0.5; });
 
     // Funkcja do odtwarzania dźwięku strzału (szybka)
     function playShootSound() {
         if (!audioInitialized) return;
-        const buffer = shootSoundBuffer;
+        const buffer = shootSoundBuffer; 
         if (!audioContext || !buffer || audioContext.state !== 'running') return; 
         const source = audioContext.createBufferSource(); 
         source.buffer = buffer; 
@@ -85,14 +84,14 @@ window.addEventListener('load', function() {
     function updateSuperShotUI() { superShotBtn.innerText = `SUPER STRZAŁ (${superShotCharges})`; superShotBtn.disabled = superShotCharges <= 0; }
     
     function shootTriple() { 
-        playShootSound(); // Używa szybkiego Web Audio API
+        playShootSound(); 
         const bulletX = player.x + player.width / 2 - 2.5; 
         if (currentLevel < 3) { setTimeout(() => { if (!gameOver) bullets.push(new Bullet(bulletX, player.y)) }, 0); setTimeout(() => { if (!gameOver) bullets.push(new Bullet(bulletX, player.y)) }, 100); setTimeout(() => { if (!gameOver) bullets.push(new Bullet(bulletX, player.y)) }, 200); } 
         else { const spreadAngle = 0.15; bullets.push(new Bullet(bulletX, player.y, 'white', 500, 0)); bullets.push(new Bullet(bulletX, player.y, 'white', 500, -spreadAngle)); bullets.push(new Bullet(bulletX, player.y, 'white', 500, spreadAngle)); } 
     }
     
     function shootSuper() { 
-        superShotSound.currentTime = 0; superShotSound.play(); // Używa <audio>
+        superShotSound.currentTime = 0; superShotSound.play(); 
         superShotCharges--; 
         updateSuperShotUI(); 
         const bulletCount = 30; 
@@ -107,7 +106,7 @@ window.addEventListener('load', function() {
             lives--; 
             missedEnemies = 0; 
             if (lives > 0) { 
-                lifeLostSound.currentTime = 0; lifeLostSound.play(); // Używa <audio>
+                lifeLostSound.currentTime = 0; lifeLostSound.play();
             } 
         } 
         if (lives <= 0 && !gameOver) { 
@@ -132,7 +131,7 @@ window.addEventListener('load', function() {
         checkLevelUp(); 
         if (gameOver) { 
             if (gameOverScreen.style.display !== 'flex') { 
-                gameOverSound.currentTime = 0; gameOverSound.play(); // Używa <audio>
+                gameOverSound.currentTime = 0; gameOverSound.play();
                 setTimeout(() => { 
                     gameOverScreen.style.display = 'flex'; 
                     finalScoreEl.innerText = score; 
@@ -145,35 +144,29 @@ window.addEventListener('load', function() {
     
     function resetGame() { if (animationFrameId) cancelAnimationFrame(animationFrameId); score = 0; lives = 3; missedEnemies = 0; gameOver = false; bullets = []; enemies = []; currentLevel = 1; enemyBaseSpeed = 100; enemySpeedMultiplier = 1.0; baseEnemyInterval = 1000; enemySpawnMultiplier = 1.0; enemySpawnTimer = 0; maxSuperShotCharges = 2; superShotCharges = maxSuperShotCharges; gameOverScreen.style.display = 'none'; resizeGame(); player = new Player(); input.x = canvas.width / 2; lastTime = 0; updateUI(); animate(0); }
 
-    // --- ZMIANA: NOWA LOGIKA STARTOWA ---
+    // --- ZMIANA: Czysta i prosta logika startowa ---
 
     // Ta funkcja jest wywoływana TYLKO po kliknięciu "Start"
     function initGame() {
         startScreen.removeEventListener('click', initGame);
         startScreen.removeEventListener('touchstart', initGame);
         
-        // Krok 1: Spróbuj odtworzyć i zatrzymać wszystkie dźwięki <audio>, aby je odblokować
-        [...uiSounds].forEach(sound => {
-            const playPromise = sound.play();
-            if (playPromise !== undefined) {
-                playPromise.then(() => {
-                    sound.pause();
-                    sound.currentTime = 0;
-                }).catch(error => {
-                    console.warn(`Nie można było "odblokować" dźwięku ${sound.src}, ale to może być normalne.`, error);
-                });
-            }
-        });
-        
-        // Krok 2: Stwórz i wznów AudioContext dla dźwięku strzału
+        // Krok 1: Stwórz AudioContext
         if (!audioContext) {
             audioContext = new (window.AudioContext || window.webkitAudioContext)();
         }
-        if (audioContext.state === 'suspended') {
-            audioContext.resume();
-        }
 
-        // Krok 3: Uruchom grę
+        // Krok 2: Wznów kontekst i w odpowiedzi odtwórz dźwięk startowy
+        audioContext.resume().then(() => {
+            console.log("AudioContext jest gotowy i działa. Stan:", audioContext.state);
+            audioInitialized = true;
+            letsGoSound.currentTime = 0;
+            letsGoSound.play(); // Odtwórz dźwięk potwierdzenia
+        }).catch(e => {
+            console.error("Nie udało się wznowić AudioContext:", e);
+        });
+
+        // Krok 3: Uruchom grę natychmiast
         startScreen.style.display = 'none';
         canvas.style.display = 'block';
         gameUiElements.style.display = 'block';
@@ -189,17 +182,14 @@ window.addEventListener('load', function() {
                 shipImage.src = 'assets/ship.png';
             });
 
-            // Musimy załadować tylko JEDEN dźwięk dla Web Audio API
+            // Dekodujemy TYLKO dźwięk strzału, reszta to proste <audio>
+            // Używamy tymczasowego kontekstu, żeby nie tworzyć głównego przed interakcją
+            const tempCtx = new (window.OfflineAudioContext || window.webkitOfflineAudioContext)(1, 1, 44100);
             const shootSoundPromise = fetch('assets/laser_shoot.mp3')
                 .then(response => response.arrayBuffer())
-                .then(arrayBuffer => {
-                    // Dekodujemy później, po stworzeniu kontekstu
-                    const tempCtx = new (window.AudioContext || window.webkitAudioContext)();
-                    return tempCtx.decodeAudioData(arrayBuffer);
-                })
+                .then(arrayBuffer => tempCtx.decodeAudioData(arrayBuffer))
                 .then(audioBuffer => { shootSoundBuffer = audioBuffer; });
-
-
+            
             await Promise.all([imagePromise, shootSoundPromise]);
             
             startScreenText.innerHTML = 'Gra gotowa! Dotknij, aby grać.';
