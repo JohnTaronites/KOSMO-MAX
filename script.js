@@ -1,7 +1,7 @@
-// Wersja 7.1
+// Wersja 8.0 (Cicha)
 window.addEventListener('load', function() {
-    // --- GŁÓWNE ZMIENNE ---
-    const version = '7.1';
+    // --- GŁÓWNE ZMIENNE I KONFIGURACJA ---
+    const version = '8.0';
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
     const startScreen = document.getElementById('startScreen');
@@ -10,8 +10,7 @@ window.addEventListener('load', function() {
     const versionDisplay = document.getElementById('version-display');
     versionDisplay.innerText = `v${version}`;
 
-    // --- TWORZENIE UI ---
-    // (Ten kod jest poprawny, więc został zwinięty dla czytelności)
+    // --- TWORZENIE ELEMENTÓW INTERFEJSU (UI) ---
     const gameUiElements = document.createElement('div');
     gameUiElements.style.display = 'none';
     const uiContainer = document.createElement('div');
@@ -38,21 +37,8 @@ window.addEventListener('load', function() {
     gameContainer.appendChild(superShotBtn);
     gameContainer.appendChild(gameOverScreen);
 
-
     // --- ZASOBY GRY ---
     const shipImage = new Image();
-    const soundPoolSize = 5;
-    const shootSounds = [];
-    for (let i = 0; i < soundPoolSize; i++) {
-        shootSounds.push(new Audio('assets/laser_shoot.mp3'));
-    }
-    const lifeLostSound = new Audio('assets/craaash.mp3');
-    const gameOverSound = new Audio('assets/Ohnoo.mp3');
-    const superShotSound = new Audio('assets/bigbomb.mp3');
-    const letsGoSound = new Audio('assets/letsgo.mp3');
-    const allSounds = [...shootSounds, lifeLostSound, gameOverSound, superShotSound, letsGoSound];
-    allSounds.forEach(sound => { sound.volume = 0.4; });
-    let currentSoundIndex = 0;
     
     // --- ZMIENNE STANU GRY ---
     let score, lives, missedEnemies, gameOver, animationFrameId, lastTime = 0;
@@ -75,45 +61,29 @@ window.addEventListener('load', function() {
     newGameBtn.addEventListener('click', resetGame);
     superShotBtn.addEventListener('click', () => { if (!gameOver && player && superShotCharges > 0) { shootSuper(); }});
     function updateSuperShotUI() { superShotBtn.innerText = `SUPER STRZAŁ (${superShotCharges})`; superShotBtn.disabled = superShotCharges <= 0; }
-    function playShootSound() { const sound = shootSounds[currentSoundIndex]; sound.currentTime = 0; sound.play(); currentSoundIndex = (currentSoundIndex + 1) % soundPoolSize; }
-    function shootTriple() { playShootSound(); const bulletX = player.x + player.width / 2 - 2.5; if (currentLevel < 3) { setTimeout(() => { if (!gameOver) bullets.push(new Bullet(bulletX, player.y)) }, 0); setTimeout(() => { if (!gameOver) bullets.push(new Bullet(bulletX, player.y)) }, 100); setTimeout(() => { if (!gameOver) bullets.push(new Bullet(bulletX, player.y)) }, 200); } else { const spreadAngle = 0.15; bullets.push(new Bullet(bulletX, player.y, 'white', 500, 0)); bullets.push(new Bullet(bulletX, player.y, 'white', 500, -spreadAngle)); bullets.push(new Bullet(bulletX, player.y, 'white', 500, spreadAngle)); } }
-    function shootSuper() { superShotSound.currentTime = 0; superShotSound.play(); superShotCharges--; updateSuperShotUI(); const bulletCount = 30; for (let i = 0; i < bulletCount; i++) { const angle = (Math.PI * 2 / bulletCount) * i; bullets.push(new Bullet(player.x + player.width / 2, player.y + player.height / 2, 'red', 300, angle)); } }
+    function shootTriple() { const bulletX = player.x + player.width / 2 - 2.5; if (currentLevel < 3) { setTimeout(() => { if (!gameOver) bullets.push(new Bullet(bulletX, player.y)) }, 0); setTimeout(() => { if (!gameOver) bullets.push(new Bullet(bulletX, player.y)) }, 100); setTimeout(() => { if (!gameOver) bullets.push(new Bullet(bulletX, player.y)) }, 200); } else { const spreadAngle = 0.15; bullets.push(new Bullet(bulletX, player.y, 'white', 500, 0)); bullets.push(new Bullet(bulletX, player.y, 'white', 500, -spreadAngle)); bullets.push(new Bullet(bulletX, player.y, 'white', 500, spreadAngle)); } }
+    function shootSuper() { superShotCharges--; updateSuperShotUI(); const bulletCount = 30; for (let i = 0; i < bulletCount; i++) { const angle = (Math.PI * 2 / bulletCount) * i; bullets.push(new Bullet(player.x + player.width / 2, player.y + player.height / 2, 'red', 300, angle)); } }
     function handleGameElements(deltaTime) { const currentEnemyInterval = baseEnemyInterval / enemySpawnMultiplier; if (enemySpawnTimer > currentEnemyInterval) { enemies.push(new Enemy()); enemySpawnTimer = 0; } else { enemySpawnTimer += deltaTime * 1000; } bullets.forEach(bullet => bullet.update(deltaTime)); enemies.forEach(enemy => enemy.update(deltaTime)); for (let i = bullets.length - 1; i >= 0; i--) { for (let j = enemies.length - 1; j >= 0; j--) { if (bullets[i] && enemies[j] && checkCollision(bullets[i], enemies[j])) { bullets[i].markedForDeletion = true; enemies[j].markedForDeletion = true; score += 10; } } } bullets = bullets.filter(bullet => !bullet.markedForDeletion); enemies = enemies.filter(enemy => !enemy.markedForDeletion); bullets.forEach(bullet => bullet.draw(ctx)); enemies.forEach(enemy => enemy.draw(ctx)); }
     function checkCollision(rect1, rect2) { return (rect1.x < rect2.x + rect2.width && rect1.x + rect1.width > rect2.x && rect1.y < rect2.y + rect2.height && rect1.y + rect1.height > rect2.y); }
-    function checkGameState() { if (missedEnemies >= 3) { lives--; missedEnemies = 0; if (lives > 0) { lifeLostSound.currentTime = 0; lifeLostSound.play(); } } if (lives <= 0 && !gameOver) { gameOver = true; } }
+    function checkGameState() { if (missedEnemies >= 3) { lives--; missedEnemies = 0; } if (lives <= 0 && !gameOver) { gameOver = true; } }
     function updateUI() { scoreEl.innerHTML = `WYNIK: ${score}`; levelEl.innerHTML = `POZIOM: ${currentLevel}`; livesEl.innerHTML = `ŻYCIA: ${lives}`; updateSuperShotUI(); }
     function showLevelUpMessage(level) { const levelUpEl = document.createElement('div'); levelUpEl.innerText = `LEVEL ${level}`; levelUpEl.style.position = 'absolute'; levelUpEl.style.left = '50%'; levelUpEl.style.top = '50%'; levelUpEl.style.transform = 'translate(-50%, -50%)'; levelUpEl.style.color = '#6c6cff'; levelUpEl.style.fontSize = '5em'; levelUpEl.style.textShadow = '3px 3px 6px #000'; levelUpEl.style.opacity = '1'; levelUpEl.style.transition = 'opacity 1s ease-out'; levelUpEl.style.userSelect = 'none'; levelUpEl.style.webkitUserSelect = 'none'; document.body.appendChild(levelUpEl); setTimeout(() => { levelUpEl.style.opacity = '0'; setTimeout(() => { document.body.removeChild(levelUpEl); }, 1000); }, 1500); }
     function levelUp(newLevel) { currentLevel = newLevel; showLevelUpMessage(currentLevel); enemySpeedMultiplier *= 1.2; enemySpawnMultiplier *= 1.2; if (currentLevel === 3) { maxSuperShotCharges = 3; } superShotCharges = maxSuperShotCharges; }
     function checkLevelUp() { if (currentLevel === 1 && score >= 200) { levelUp(2); } else if (currentLevel === 2 && score >= 500) { levelUp(3); } }
-    function animate(timestamp) { if (!lastTime) lastTime = timestamp; const deltaTime = (timestamp - lastTime) / 1000; lastTime = timestamp; ctx.clearRect(0, 0, canvas.width, canvas.height); if (player) { player.update(input.x); player.draw(ctx); } handleGameElements(deltaTime); checkGameState(); updateUI(); checkLevelUp(); if (gameOver) { if (gameOverScreen.style.display !== 'flex') { gameOverSound.currentTime = 0; gameOverSound.play(); setTimeout(() => { gameOverScreen.style.display = 'flex'; finalScoreEl.innerText = score; }, 500); } } else { animationFrameId = requestAnimationFrame(animate); } }
+    function animate(timestamp) { if (!lastTime) lastTime = timestamp; const deltaTime = (timestamp - lastTime) / 1000; lastTime = timestamp; ctx.clearRect(0, 0, canvas.width, canvas.height); if (player) { player.update(input.x); player.draw(ctx); } handleGameElements(deltaTime); checkGameState(); updateUI(); checkLevelUp(); if (gameOver) { if (gameOverScreen.style.display !== 'flex') { setTimeout(() => { gameOverScreen.style.display = 'flex'; finalScoreEl.innerText = score; }, 500); } } else { animationFrameId = requestAnimationFrame(animate); } }
     function resetGame() { if (animationFrameId) cancelAnimationFrame(animationFrameId); score = 0; lives = 3; missedEnemies = 0; gameOver = false; bullets = []; enemies = []; currentLevel = 1; enemyBaseSpeed = 100; enemySpeedMultiplier = 1.0; baseEnemyInterval = 1000; enemySpawnMultiplier = 1.0; enemySpawnTimer = 0; maxSuperShotCharges = 2; superShotCharges = maxSuperShotCharges; gameOverScreen.style.display = 'none'; resizeGame(); player = new Player(); input.x = canvas.width / 2; lastTime = 0; updateUI(); animate(0); }
 
-    // --- ZMIANA: OSTATECZNA, NAJPROSTSZA ARCHITEKTURA STARTOWA ---
-
-    // Funkcja wywoływana TYLKO po kliknięciu "Start"
+    // --- ZMIANA: NAJPROSTSZA MOŻLIWA LOGIKA STARTOWA ---
     function initGame() {
         startButton.removeEventListener('click', initGame);
         
-        // Spróbuj odtworzyć i zatrzymać jeden dźwięk, aby odblokować audio
-        // To jest nasza jedyna wrażliwa operacja
-        const unlockPromise = letsGoSound.play();
-        if (unlockPromise !== undefined) {
-            unlockPromise.then(() => {
-                letsGoSound.pause();
-                letsGoSound.currentTime = 0;
-                console.log("Audio odblokowane pomyślnie.");
-            }).catch(error => {
-                console.warn("Automatyczne odtwarzanie zablokowane, ale to OK.", error);
-            });
-        }
-
-        // Uruchom grę natychmiast
+        // Po prostu ukryj ekran startowy i uruchom grę
         startScreen.style.display = 'none';
         gameContainer.style.display = 'block';
         resetGame();
     }
     
-    // Ładuje tylko obrazek, bo dźwięki <audio> ładują się same w tle
+    // Ładuje tylko obrazek
     function loadInitialAssets() {
         startButton.disabled = true;
         startButton.innerText = 'ŁADOWANIE...';
