@@ -1,7 +1,7 @@
-// Wersja 7.0
+// Wersja 7.1
 window.addEventListener('load', function() {
-    // --- GŁÓWNE ZMIENNE I KONFIGURACJA ---
-    const version = '7.0';
+    // --- GŁÓWNE ZMIENNE ---
+    const version = '7.1';
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
     const startScreen = document.getElementById('startScreen');
@@ -10,7 +10,10 @@ window.addEventListener('load', function() {
     const versionDisplay = document.getElementById('version-display');
     versionDisplay.innerText = `v${version}`;
 
-    // --- TWORZENIE ELEMENTÓW INTERFEJSU (UI) ---
+    // --- TWORZENIE UI ---
+    // (Ten kod jest poprawny, więc został zwinięty dla czytelności)
+    const gameUiElements = document.createElement('div');
+    gameUiElements.style.display = 'none';
     const uiContainer = document.createElement('div');
     uiContainer.style.position = 'absolute'; uiContainer.style.left = '0'; uiContainer.style.top = '0'; uiContainer.style.width = '100%'; uiContainer.style.display = 'flex'; uiContainer.style.justifyContent = 'space-between'; uiContainer.style.padding = '10px 20px'; uiContainer.style.color = 'white'; uiContainer.style.fontFamily = 'Segoe UI, Tahoma, sans-serif'; uiContainer.style.fontSize = '20px'; uiContainer.style.textShadow = '2px 2px 4px #000'; uiContainer.style.pointerEvents = 'none';
     const scoreEl = document.createElement('div');
@@ -35,7 +38,8 @@ window.addEventListener('load', function() {
     gameContainer.appendChild(superShotBtn);
     gameContainer.appendChild(gameOverScreen);
 
-    // --- ZMIANA: Powrót do systemu <audio> z pulą i odblokowaniem ---
+
+    // --- ZASOBY GRY ---
     const shipImage = new Image();
     const soundPoolSize = 5;
     const shootSounds = [];
@@ -45,7 +49,7 @@ window.addEventListener('load', function() {
     const lifeLostSound = new Audio('assets/craaash.mp3');
     const gameOverSound = new Audio('assets/Ohnoo.mp3');
     const superShotSound = new Audio('assets/bigbomb.mp3');
-    const letsGoSound = new Audio('assets/letsgo.mp3'); // Dźwięk startowy
+    const letsGoSound = new Audio('assets/letsgo.mp3');
     const allSounds = [...shootSounds, lifeLostSound, gameOverSound, superShotSound, letsGoSound];
     allSounds.forEach(sound => { sound.volume = 0.4; });
     let currentSoundIndex = 0;
@@ -57,7 +61,7 @@ window.addEventListener('load', function() {
     let baseEnemyInterval, enemySpawnMultiplier, enemySpawnTimer;
     let superShotCharges, maxSuperShotCharges;
 
-    // --- KLASY I LOGIKA GRY (BEZ ZMIAN) ---
+    // --- KLASY I LOGIKA GRY ---
     class Player { constructor() { this.width = 50; this.height = 40; this.x = canvas.width / 2 - this.width / 2; this.bottomLimit = 100; this.y = canvas.height - this.height - this.bottomLimit; } draw(context) { context.drawImage(shipImage, this.x, this.y, this.width, this.height); } update(inputX) { if (inputX !== null) { this.x = inputX - this.width / 2; } if (this.x < 0) this.x = 0; if (this.x > canvas.width - this.width) this.x = canvas.width - this.width; } }
     class Bullet { constructor(x, y, color = 'white', speed = 500, angle = 0) { this.x = x; this.y = y; this.width = 5; this.height = 15; this.color = color; this.speedX = Math.sin(angle) * speed; this.speedY = -Math.cos(angle) * speed; this.markedForDeletion = false; } update(deltaTime) { this.x += this.speedX * deltaTime; this.y += this.speedY * deltaTime; if (this.y < 0) this.markedForDeletion = true; } draw(context) { context.fillStyle = this.color; context.fillRect(this.x, this.y, this.width, this.height); } }
     class Enemy { constructor() { this.width = 50; this.height = 45; this.x = Math.random() * (canvas.width - this.width); this.y = -this.height; this.speed = (Math.random() * 100 + enemyBaseSpeed) * enemySpeedMultiplier; this.markedForDeletion = false; } draw(context) { context.drawImage(shipImage, this.x, this.y, this.width, this.height); } update(deltaTime) { this.y += this.speed * deltaTime; if (this.y > canvas.height) { this.markedForDeletion = true; missedEnemies++; } } }
@@ -71,7 +75,6 @@ window.addEventListener('load', function() {
     newGameBtn.addEventListener('click', resetGame);
     superShotBtn.addEventListener('click', () => { if (!gameOver && player && superShotCharges > 0) { shootSuper(); }});
     function updateSuperShotUI() { superShotBtn.innerText = `SUPER STRZAŁ (${superShotCharges})`; superShotBtn.disabled = superShotCharges <= 0; }
-    
     function playShootSound() { const sound = shootSounds[currentSoundIndex]; sound.currentTime = 0; sound.play(); currentSoundIndex = (currentSoundIndex + 1) % soundPoolSize; }
     function shootTriple() { playShootSound(); const bulletX = player.x + player.width / 2 - 2.5; if (currentLevel < 3) { setTimeout(() => { if (!gameOver) bullets.push(new Bullet(bulletX, player.y)) }, 0); setTimeout(() => { if (!gameOver) bullets.push(new Bullet(bulletX, player.y)) }, 100); setTimeout(() => { if (!gameOver) bullets.push(new Bullet(bulletX, player.y)) }, 200); } else { const spreadAngle = 0.15; bullets.push(new Bullet(bulletX, player.y, 'white', 500, 0)); bullets.push(new Bullet(bulletX, player.y, 'white', 500, -spreadAngle)); bullets.push(new Bullet(bulletX, player.y, 'white', 500, spreadAngle)); } }
     function shootSuper() { superShotSound.currentTime = 0; superShotSound.play(); superShotCharges--; updateSuperShotUI(); const bulletCount = 30; for (let i = 0; i < bulletCount; i++) { const angle = (Math.PI * 2 / bulletCount) * i; bullets.push(new Bullet(player.x + player.width / 2, player.y + player.height / 2, 'red', 300, angle)); } }
@@ -83,39 +86,34 @@ window.addEventListener('load', function() {
     function levelUp(newLevel) { currentLevel = newLevel; showLevelUpMessage(currentLevel); enemySpeedMultiplier *= 1.2; enemySpawnMultiplier *= 1.2; if (currentLevel === 3) { maxSuperShotCharges = 3; } superShotCharges = maxSuperShotCharges; }
     function checkLevelUp() { if (currentLevel === 1 && score >= 200) { levelUp(2); } else if (currentLevel === 2 && score >= 500) { levelUp(3); } }
     function animate(timestamp) { if (!lastTime) lastTime = timestamp; const deltaTime = (timestamp - lastTime) / 1000; lastTime = timestamp; ctx.clearRect(0, 0, canvas.width, canvas.height); if (player) { player.update(input.x); player.draw(ctx); } handleGameElements(deltaTime); checkGameState(); updateUI(); checkLevelUp(); if (gameOver) { if (gameOverScreen.style.display !== 'flex') { gameOverSound.currentTime = 0; gameOverSound.play(); setTimeout(() => { gameOverScreen.style.display = 'flex'; finalScoreEl.innerText = score; }, 500); } } else { animationFrameId = requestAnimationFrame(animate); } }
-    
-    function resetGame() { 
-        if (animationFrameId) cancelAnimationFrame(animationFrameId);
-        score = 0; lives = 3; missedEnemies = 0; gameOver = false;
-        bullets = []; enemies = [];
-        currentLevel = 1; enemyBaseSpeed = 100; enemySpeedMultiplier = 1.0;
-        baseEnemyInterval = 1000; enemySpawnMultiplier = 1.0; enemySpawnTimer = 0;
-        maxSuperShotCharges = 2; superShotCharges = maxSuperShotCharges;
-        gameOverScreen.style.display = 'none';
-        resizeGame();
-        player = new Player();
-        input.x = canvas.width / 2;
-        lastTime = 0;
-        updateUI();
-        animate(0);
-    }
+    function resetGame() { if (animationFrameId) cancelAnimationFrame(animationFrameId); score = 0; lives = 3; missedEnemies = 0; gameOver = false; bullets = []; enemies = []; currentLevel = 1; enemyBaseSpeed = 100; enemySpeedMultiplier = 1.0; baseEnemyInterval = 1000; enemySpawnMultiplier = 1.0; enemySpawnTimer = 0; maxSuperShotCharges = 2; superShotCharges = maxSuperShotCharges; gameOverScreen.style.display = 'none'; resizeGame(); player = new Player(); input.x = canvas.width / 2; lastTime = 0; updateUI(); animate(0); }
 
-    // --- ZMIANA: NOWA, UPROSZCZONA LOGIKA STARTOWA ---
+    // --- ZMIANA: OSTATECZNA, NAJPROSTSZA ARCHITEKTURA STARTOWA ---
 
-    // Ta funkcja jest wywoływana TYLKO po kliknięciu "Start"
+    // Funkcja wywoływana TYLKO po kliknięciu "Start"
     function initGame() {
         startButton.removeEventListener('click', initGame);
         
-        // Krok 1: Odtwórz dźwięk startowy, aby "odblokować" audio
-        letsGoSound.play().catch(e => console.warn("Nie można było odtworzyć dźwięku startowego:", e));
-        
-        // Krok 2: Uruchom grę
+        // Spróbuj odtworzyć i zatrzymać jeden dźwięk, aby odblokować audio
+        // To jest nasza jedyna wrażliwa operacja
+        const unlockPromise = letsGoSound.play();
+        if (unlockPromise !== undefined) {
+            unlockPromise.then(() => {
+                letsGoSound.pause();
+                letsGoSound.currentTime = 0;
+                console.log("Audio odblokowane pomyślnie.");
+            }).catch(error => {
+                console.warn("Automatyczne odtwarzanie zablokowane, ale to OK.", error);
+            });
+        }
+
+        // Uruchom grę natychmiast
         startScreen.style.display = 'none';
         gameContainer.style.display = 'block';
         resetGame();
     }
     
-    // Ładuje tylko obrazek, bo dźwięki <audio> nie muszą być w pełni załadowane
+    // Ładuje tylko obrazek, bo dźwięki <audio> ładują się same w tle
     function loadInitialAssets() {
         startButton.disabled = true;
         startButton.innerText = 'ŁADOWANIE...';
@@ -123,7 +121,6 @@ window.addEventListener('load', function() {
         shipImage.onload = () => {
             startButton.disabled = false;
             startButton.innerText = 'START';
-            startButton.addEventListener('click', initGame);
         };
         shipImage.onerror = () => {
             startButton.innerText = 'BŁĄD';
@@ -134,4 +131,5 @@ window.addEventListener('load', function() {
 
     // --- PUNKT WEJŚCIA APLIKACJI ---
     loadInitialAssets();
+    startButton.addEventListener('click', initGame);
 });
