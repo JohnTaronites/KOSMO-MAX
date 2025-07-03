@@ -1,4 +1,4 @@
-// Wersja 5.1 (Cicha)
+// Wersja 5.1
 window.addEventListener('load', function() {
     // --- GŁÓWNE ZMIENNE I KONFIGURACJA ---
     const version = '5.1-cicha';
