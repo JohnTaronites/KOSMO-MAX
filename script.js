@@ -1,12 +1,11 @@
-// Wersja 8.0 (Cicha)
+// Wersja 5.1 (Cicha)
 window.addEventListener('load', function() {
     // --- GŁÓWNE ZMIENNE I KONFIGURACJA ---
-    const version = '8.0';
+    const version = '5.1-cicha';
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
     const startScreen = document.getElementById('startScreen');
-    const startButton = document.getElementById('startButton');
-    const gameContainer = document.getElementById('gameContainer');
+    const startScreenText = startScreen.querySelector('p');
     const versionDisplay = document.getElementById('version-display');
     versionDisplay.innerText = `v${version}`;
 
@@ -33,11 +32,12 @@ window.addEventListener('load', function() {
     newGameBtn.innerText = 'NOWA GRA'; newGameBtn.style.marginTop = '30px'; newGameBtn.style.padding = '15px 30px'; newGameBtn.style.fontSize = '1.2em'; newGameBtn.style.cursor = 'pointer'; newGameBtn.style.backgroundColor = '#4CAF50'; newGameBtn.style.color = 'white'; newGameBtn.style.border = 'none'; newGameBtn.style.borderRadius = '5px';
     newGameBtn.addEventListener('click', resetGame);
     gameOverScreen.appendChild(gameOverTitle); gameOverScreen.appendChild(finalScoreText); gameOverScreen.appendChild(newGameBtn);
-    gameContainer.appendChild(uiContainer);
-    gameContainer.appendChild(superShotBtn);
-    gameContainer.appendChild(gameOverScreen);
+    gameUiElements.appendChild(uiContainer);
+    gameUiElements.appendChild(superShotBtn);
+    document.body.appendChild(gameUiElements);
+    document.body.appendChild(gameOverScreen);
 
-    // --- ZASOBY GRY ---
+    // --- ZASOBY GRY (tylko obrazek) ---
     const shipImage = new Image();
     
     // --- ZMIENNE STANU GRY ---
@@ -71,30 +71,44 @@ window.addEventListener('load', function() {
     function levelUp(newLevel) { currentLevel = newLevel; showLevelUpMessage(currentLevel); enemySpeedMultiplier *= 1.2; enemySpawnMultiplier *= 1.2; if (currentLevel === 3) { maxSuperShotCharges = 3; } superShotCharges = maxSuperShotCharges; }
     function checkLevelUp() { if (currentLevel === 1 && score >= 200) { levelUp(2); } else if (currentLevel === 2 && score >= 500) { levelUp(3); } }
     function animate(timestamp) { if (!lastTime) lastTime = timestamp; const deltaTime = (timestamp - lastTime) / 1000; lastTime = timestamp; ctx.clearRect(0, 0, canvas.width, canvas.height); if (player) { player.update(input.x); player.draw(ctx); } handleGameElements(deltaTime); checkGameState(); updateUI(); checkLevelUp(); if (gameOver) { if (gameOverScreen.style.display !== 'flex') { setTimeout(() => { gameOverScreen.style.display = 'flex'; finalScoreEl.innerText = score; }, 500); } } else { animationFrameId = requestAnimationFrame(animate); } }
-    function resetGame() { if (animationFrameId) cancelAnimationFrame(animationFrameId); score = 0; lives = 3; missedEnemies = 0; gameOver = false; bullets = []; enemies = []; currentLevel = 1; enemyBaseSpeed = 100; enemySpeedMultiplier = 1.0; baseEnemyInterval = 1000; enemySpawnMultiplier = 1.0; enemySpawnTimer = 0; maxSuperShotCharges = 2; superShotCharges = maxSuperShotCharges; gameOverScreen.style.display = 'none'; resizeGame(); player = new Player(); input.x = canvas.width / 2; lastTime = 0; updateUI(); animate(0); }
+    
+    function resetGame() { 
+        if (animationFrameId) cancelAnimationFrame(animationFrameId);
+        score = 0; lives = 3; missedEnemies = 0; gameOver = false;
+        bullets = []; enemies = [];
+        currentLevel = 1; enemyBaseSpeed = 100; enemySpeedMultiplier = 1.0;
+        baseEnemyInterval = 1000; enemySpawnMultiplier = 1.0; enemySpawnTimer = 0;
+        maxSuperShotCharges = 2; superShotCharges = maxSuperShotCharges;
+        gameOverScreen.style.display = 'none';
+        resizeGame();
+        player = new Player();
+        input.x = canvas.width / 2;
+        lastTime = 0;
+        updateUI();
+        animate(0);
+    }
 
-    // --- ZMIANA: NAJPROSTSZA MOŻLIWA LOGIKA STARTOWA ---
+    // --- UPROSZCZONA LOGIKA STARTOWA ---
     function initGame() {
-        startButton.removeEventListener('click', initGame);
-        
-        // Po prostu ukryj ekran startowy i uruchom grę
+        startScreen.removeEventListener('click', initGame);
+        startScreen.removeEventListener('touchstart', initGame);
         startScreen.style.display = 'none';
-        gameContainer.style.display = 'block';
+        canvas.style.display = 'block';
+        gameUiElements.style.display = 'block';
         resetGame();
     }
     
-    // Ładuje tylko obrazek
     function loadInitialAssets() {
+        startScreen.querySelector('p').innerText = 'ŁADOWANIE...';
         startButton.disabled = true;
-        startButton.innerText = 'ŁADOWANIE...';
 
         shipImage.onload = () => {
-            startButton.disabled = false;
+            startScreen.querySelector('p').innerText = 'Kliknij lub dotknij ekranu, aby rozpocząć!';
             startButton.innerText = 'START';
+            startButton.disabled = false;
         };
         shipImage.onerror = () => {
-            startButton.innerText = 'BŁĄD';
-            alert('Nie udało się załadować grafiki. Odśwież stronę.');
+            startScreen.querySelector('p').innerText = 'Błąd ładowania grafiki. Odśwież stronę.';
         };
         shipImage.src = 'assets/ship.png';
     }
