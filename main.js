@@ -1,9 +1,11 @@
-// KOSMO-MAX w Phaser 3 (wersja demo, pełna logika gry przeniesiona z vanilla JS)
-// Autor: JohnTaronites + Copilot, 2024
+// KOSMO-MAX Phaser 3 - poprawki: skalowanie, jeden obrazek (ship.png) dla wszystkich, poprawne pociski, proporcje vanillaJS
 
 const GAME_WIDTH = 800;
 const GAME_HEIGHT = 600;
 
+const PLAYER_W = 50, PLAYER_H = 40;
+const ENEMY_W = 50, ENEMY_H = 45;
+const BULLET_W = 5, BULLET_H = 15;
 const PLAYER_SPEED = 400;
 const BULLET_SPEED = 600;
 const ENEMY_SPEED_START = 100;
@@ -16,7 +18,6 @@ class StartScene extends Phaser.Scene {
     constructor() { super({key: 'StartScene'}); }
     preload() {
         this.load.image('ship', 'assets/ship.png');
-        this.load.image('enemy', 'assets/enemy.png');
         this.load.audio('shoot', 'assets/laser_shoot.mp3');
         this.load.audio('craaash', 'assets/craaash.mp3');
         this.load.audio('bigbomb', 'assets/bigbomb.mp3');
@@ -27,7 +28,7 @@ class StartScene extends Phaser.Scene {
         this.cameras.main.setBackgroundColor('#141c2c');
         this.add.text(GAME_WIDTH/2, 160, 'KOSMO-MAX', {font: '60px Segoe UI', fill:'#fff', stroke:'#000', strokeThickness:8})
             .setOrigin(0.5);
-        this.add.text(GAME_WIDTH/2, 250, 'Sterowanie:\n- Klikaj/tapnij w oknie by strzelać\n- Przesuwaj palcem lub myszką, by sterować\n- Klawiatura: ← → oraz spacja\n\nCel: trafiaj wrogów, unikaj utraty żyć!', 
+        this.add.text(GAME_WIDTH/2, 250, 'Sterowanie:\n- Kliknij/tapnij w oknie by strzelać\n- Przesuwaj palcem lub myszką, by sterować\n- Klawiatura: ← → oraz spacja\n\nCel: trafiaj wrogów, unikaj utraty żyć!', 
             { font: '24px Segoe UI', fill: '#fff', align:'center' }).setOrigin(0.5);
 
         const btn = this.add.text(GAME_WIDTH/2, 420, 'START [KLIKNIJ/LUB TAPNIJ]', 
@@ -36,7 +37,7 @@ class StartScene extends Phaser.Scene {
             .setInteractive();
 
         btn.on('pointerdown', () => {
-            this.sound.unlock(); // Odblokuj dźwięki na mobilu!
+            this.sound.unlock();
             this.scene.start('KosmoMaxScene');
         });
     }
@@ -62,16 +63,15 @@ class KosmoMaxScene extends Phaser.Scene {
         this.maxSuperShotCharges = 2;
         this.gameOver = false;
 
-        // --- STATEK ---
+        // --- PLAYER ---
         this.player = this.physics.add.image(GAME_WIDTH/2, GAME_HEIGHT-80, 'ship')
+            .setDisplaySize(PLAYER_W, PLAYER_H)
             .setCollideWorldBounds(true)
             .setImmovable(true)
             .setDepth(1);
 
-        // --- BULLET GROUP ---
+        // --- GROUPS ---
         this.bullets = this.physics.add.group();
-
-        // --- ENEMY GROUP ---
         this.enemies = this.physics.add.group();
 
         // --- UI ---
@@ -107,20 +107,19 @@ class KosmoMaxScene extends Phaser.Scene {
         this.input.keyboard.on('keydown-SPACE', () => { if (!this.gameOver) this.shootTriple(); });
 
         this.input.on('pointermove', pointer => {
-            this.player.x = Phaser.Math.Clamp(pointer.x, this.player.width/2, GAME_WIDTH-this.player.width/2);
+            this.player.x = Phaser.Math.Clamp(pointer.x, PLAYER_W/2, GAME_WIDTH-PLAYER_W/2);
         });
         this.input.on('pointerdown', pointer => {
             if (!this.gameOver) this.shootTriple();
         });
 
-        // --- Start gry (unlock dźwięków na mobilu) ---
         this.letsgoSound.play();
 
         // --- Kolizje ---
         this.physics.add.overlap(this.bullets, this.enemies, this.bulletHitsEnemy, null, this);
 
         // --- Start ---
-        this.time.addEvent({ delay: 800, callback: ()=>this.spawnEnemy(), loop: false }); // pierwsza fala
+        this.time.addEvent({ delay: 800, callback: ()=>this.spawnEnemy(), loop: false });
     }
 
     update(time, delta) {
@@ -142,7 +141,7 @@ class KosmoMaxScene extends Phaser.Scene {
         // ENEMIES MOVE & OUT OF SCREEN
         this.enemies.getChildren().forEach(enemy => {
             enemy.y += enemy.speed * (delta/1000);
-            if (enemy.y > GAME_HEIGHT + 40) {
+            if (enemy.y > GAME_HEIGHT + ENEMY_H) {
                 enemy.destroy();
                 this.missedEnemies++;
                 if (this.missedEnemies >= 3) {
@@ -159,8 +158,8 @@ class KosmoMaxScene extends Phaser.Scene {
 
         // BULLETS OUT
         this.bullets.getChildren().forEach(bullet => {
-            bullet.y -= bullet.speed * (delta/1000);
-            if (bullet.y < -20) bullet.destroy();
+            bullet.y += bullet.body.velocity.y * (delta/1000);
+            if (bullet.y < -BULLET_H) bullet.destroy();
         });
     }
 
@@ -168,11 +167,11 @@ class KosmoMaxScene extends Phaser.Scene {
     shootTriple() {
         this.shootSound.play();
         const x = this.player.x;
-        const y = this.player.y - 32;
+        const y = this.player.y - PLAYER_H/2;
         if (this.level < 3) {
-            this.time.addEvent({ delay: 0, callback: ()=>this.spawnBullet(x, y, 0), loop: false });
-            this.time.addEvent({ delay: 100, callback: ()=>this.spawnBullet(x, y, 0), loop: false });
-            this.time.addEvent({ delay: 200, callback: ()=>this.spawnBullet(x, y, 0), loop: false });
+            this.spawnBullet(x, y, 0);
+            this.time.delayedCall(100, ()=>this.spawnBullet(x, y, 0));
+            this.time.delayedCall(200, ()=>this.spawnBullet(x, y, 0));
         } else {
             const spread = 0.15;
             this.spawnBullet(x, y, 0);
@@ -195,21 +194,22 @@ class KosmoMaxScene extends Phaser.Scene {
     }
 
     spawnBullet(x, y, angle=0, color='white', speed=BULLET_SPEED) {
-        const bullet = this.bullets.create(x, y, null);
-        bullet.displayWidth = 8; bullet.displayHeight = 20;
-        bullet.setTint(color==='red'?0xff2222:0xffffff);
-        bullet.speed = speed;
-        bullet.velX = Math.sin(angle) * speed;
-        bullet.velY = -Math.cos(angle) * speed;
-        bullet.update = function() {
-            this.x += this.velX * (1/60);
-            this.y += this.velY * (1/60);
-        };
+        // Bullet to prostokąt (Phaser.GameObjects.Rectangle) z ciałem fizyki
+        const bullet = this.add.rectangle(x, y, BULLET_W, BULLET_H, color==='red' ? 0xff2222 : 0xffffff);
+        this.physics.add.existing(bullet);
+        bullet.body.setVelocity(
+            Math.sin(angle) * speed,
+            -Math.cos(angle) * speed
+        );
+        bullet.body.setAllowGravity(false);
+        bullet.body.setSize(BULLET_W, BULLET_H);
+        this.bullets.add(bullet);
     }
 
     spawnEnemy() {
-        const x = Phaser.Math.Between(40, GAME_WIDTH-40);
-        const enemy = this.enemies.create(x, -40, 'enemy');
+        const x = Phaser.Math.Between(ENEMY_W/2, GAME_WIDTH-ENEMY_W/2);
+        const enemy = this.enemies.create(x, -ENEMY_H/2, 'ship')
+            .setDisplaySize(ENEMY_W, ENEMY_H);
         enemy.speed = (Phaser.Math.Between(0,100) + this.enemyBaseSpeed) * this.enemySpeedMultiplier;
         enemy.setCollideWorldBounds(false);
     }
@@ -270,7 +270,6 @@ class KosmoMaxScene extends Phaser.Scene {
         this.maxSuperShotCharges = 2;
         this.gameOver = false;
 
-        // Usuwanie obiektów
         this.bullets.clear(true, true);
         this.enemies.clear(true, true);
         this.player.x = GAME_WIDTH/2;
