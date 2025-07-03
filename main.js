@@ -1,4 +1,3 @@
-// KOSMO-MAX Phaser 3 – poprawiona fizyka pocisków (brak ręcznego przesuwania), lepszy wygląd bulletów
 const GAME_WIDTH = 800;
 const GAME_HEIGHT = 600;
 
@@ -17,7 +16,7 @@ class StartScene extends Phaser.Scene {
     constructor() { super({key: 'StartScene'}); }
     preload() {
         this.load.image('ship', 'assets/ship.png');
-        // Tworzymy prostą teksturę dla pocisków (białe i czerwone)
+        // Generujemy tekstury pocisków (białe i czerwone)
         this.textures.generate('bullet_white', { data: ['  1  ', '  1  ', '  1  ', '  1  ', '  1  ', '  1  ', '11111'], pixelWidth: 1, palette: { 1: '#fff' } });
         this.textures.generate('bullet_red',   { data: ['  2  ', '  2  ', '  2  ', '  2  ', '  2  ', '  2  ', '22222'], pixelWidth: 1, palette: { 2: '#f44' } });
 
@@ -25,7 +24,7 @@ class StartScene extends Phaser.Scene {
         this.load.audio('craaash', 'assets/craaash.mp3');
         this.load.audio('bigbomb', 'assets/bigbomb.mp3');
         this.load.audio('letsgo', 'assets/letsgo.mp3');
-        this.load.audio('ohnoo', 'assets/Ohnoo.mp3');
+        this.load.audio('ohnoo', 'assets/ohnoo.mp3');
     }
     create() {
         this.cameras.main.setBackgroundColor('#141c2c');
@@ -74,7 +73,10 @@ class KosmoMaxScene extends Phaser.Scene {
             .setDepth(1);
 
         // --- GROUPS ---
-        this.bullets = this.physics.add.group();
+        this.bullets = this.physics.add.group({
+            classType: Phaser.Physics.Arcade.Image,
+            runChildUpdate: false
+        });
         this.enemies = this.physics.add.group();
 
         // --- UI ---
@@ -161,9 +163,7 @@ class KosmoMaxScene extends Phaser.Scene {
 
         // BULLETS OUT -- NIE przesuwamy bulletów ręcznie, fizyka Phaser robi to za nas!
         this.bullets.getChildren().forEach(bullet => {
-            if (bullet.y < -BULLET_H) bullet.destroy();
-            // można dodać też warunek na opuszczenie ekranu w dół (przy superstrzale w dół)
-            if (bullet.y > GAME_HEIGHT + BULLET_H) bullet.destroy();
+            if (bullet.y < -BULLET_H || bullet.y > GAME_HEIGHT + BULLET_H) bullet.destroy();
         });
     }
 
@@ -198,17 +198,16 @@ class KosmoMaxScene extends Phaser.Scene {
     }
 
     spawnBullet(x, y, angle=0, color='white', speed=BULLET_SPEED) {
-        // Użyj gotowej tekstury pocisku (nie rectangle)
         const key = color === 'red' ? 'bullet_red' : 'bullet_white';
-        const bullet = this.physics.add.image(x, y, key)
+        // Użyj create z grupy fizycznej!
+        const bullet = this.bullets.create(x, y, key)
             .setDisplaySize(BULLET_W, BULLET_H)
             .setDepth(2);
         bullet.body.allowGravity = false;
-        bullet.body.setVelocity(
+        bullet.setVelocity(
             Math.sin(angle) * speed,
             -Math.cos(angle) * speed
         );
-        this.bullets.add(bullet);
     }
 
     spawnEnemy() {
