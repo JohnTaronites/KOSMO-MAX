@@ -50,6 +50,22 @@ window.addEventListener('load', function() {
     const letsGoSound = new Audio('assets/letsgo.mp3');
     [lifeLostSound, gameOverSound, superShotSound, letsGoSound].forEach(sound => { sound.volume = 0.5; });
 
+    // --- Funkcja do odblokowania dźwięków na iOS/Chrome/Mobile ---
+    async function unlockAllSounds() {
+        for (const sound of [lifeLostSound, gameOverSound, superShotSound, letsGoSound]) {
+            try {
+                sound.volume = 0;
+                // await aby nie blokować eventu
+                await sound.play();
+                sound.pause();
+                sound.currentTime = 0;
+                sound.volume = 0.5;
+            } catch(e) {
+                // Część dźwięków może być już unlocked albo play() odrzucone - ignorujemy
+            }
+        }
+    }
+
     // Funkcja do odtwarzania dźwięku strzału (szybka)
     function playShootSound() {
         if (!audioInitialized) return;
@@ -91,7 +107,9 @@ window.addEventListener('load', function() {
     }
     
     function shootSuper() { 
-        superShotSound.currentTime = 0; superShotSound.play(); 
+        superShotSound.pause();
+        superShotSound.currentTime = 0; 
+        superShotSound.play().catch(() => {});
         superShotCharges--; 
         updateSuperShotUI(); 
         const bulletCount = 30; 
@@ -106,7 +124,9 @@ window.addEventListener('load', function() {
             lives--; 
             missedEnemies = 0; 
             if (lives > 0) { 
-                lifeLostSound.currentTime = 0; lifeLostSound.play();
+                lifeLostSound.pause();
+                lifeLostSound.currentTime = 0; 
+                lifeLostSound.play().catch(() => {});
             } 
         } 
         if (lives <= 0 && !gameOver) { 
@@ -130,23 +150,26 @@ window.addEventListener('load', function() {
         updateUI(); 
         checkLevelUp(); 
         if (gameOver) { 
-    if (gameOverScreen.style.display !== 'flex') { 
-        gameOverSound.pause();
-        gameOverSound.currentTime = 0; 
-        gameOverSound.play().catch(e => {
-            console.warn("Nie można odtworzyć dźwięku Game Over:", e);
-        });
-        setTimeout(() => { 
-            gameOverScreen.style.display = 'flex'; 
-            finalScoreEl.innerText = score; 
-        }, 500); 
-    } 
-} else { 
+            if (gameOverScreen.style.display !== 'flex') { 
+                gameOverSound.pause();
+                gameOverSound.currentTime = 0; 
+                gameOverSound.play().catch(e => {
+                    console.warn("Nie można odtworzyć dźwięku Game Over:", e);
+                });
+                setTimeout(() => { 
+                    gameOverScreen.style.display = 'flex'; 
+                    finalScoreEl.innerText = score; 
+                }, 500); 
+            } 
+        } else { 
             animationFrameId = requestAnimationFrame(animate); 
         } 
     }
     
-    function resetGame() { if (animationFrameId) cancelAnimationFrame(animationFrameId); score = 0; lives = 3; missedEnemies = 0; gameOver = false; bullets = []; enemies = []; currentLevel = 1; enemyBaseSpeed = 100; enemySpeedMultiplier = 1.0; baseEnemyInterval = 1000; enemySpawnMultiplier = 1.0; enemySpawnTimer = 0; maxSuperShotCharges = 2; superShotCharges = maxSuperShotCharges; gameOverScreen.style.display = 'none'; resizeGame(); player = new Player(); input.x = canvas.width / 2; lastTime = 0; updateUI(); animate(0); }
+    function resetGame() { 
+        if (animationFrameId) cancelAnimationFrame(animationFrameId); 
+        score = 0; lives = 3; missedEnemies = 0; gameOver = false; bullets = []; enemies = []; currentLevel = 1; enemyBaseSpeed = 100; enemySpeedMultiplier = 1.0; baseEnemyInterval = 1000; enemySpawnMultiplier = 1.0; enemySpawnTimer = 0; maxSuperShotCharges = 2; superShotCharges = maxSuperShotCharges; gameOverScreen.style.display = 'none'; resizeGame(); player = new Player(); input.x = canvas.width / 2; lastTime = 0; updateUI(); animate(0); 
+    }
 
     // --- ZMIANA: Czysta i prosta logika startowa ---
 
@@ -154,7 +177,9 @@ window.addEventListener('load', function() {
     function initGame() {
         startScreen.removeEventListener('click', initGame);
         startScreen.removeEventListener('touchstart', initGame);
-        
+
+        unlockAllSounds();
+
         // Krok 1: Stwórz AudioContext
         if (!audioContext) {
             audioContext = new (window.AudioContext || window.webkitAudioContext)();
@@ -164,8 +189,9 @@ window.addEventListener('load', function() {
         audioContext.resume().then(() => {
             console.log("AudioContext jest gotowy i działa. Stan:", audioContext.state);
             audioInitialized = true;
+            letsGoSound.pause();
             letsGoSound.currentTime = 0;
-            letsGoSound.play(); // Odtwórz dźwięk potwierdzenia
+            letsGoSound.play().catch(() => {});
         }).catch(e => {
             console.error("Nie udało się wznowić AudioContext:", e);
         });
