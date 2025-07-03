@@ -50,8 +50,7 @@ window.addEventListener('load', function() {
     const letsGoSound = new Audio('assets/letsgo.mp3');
     [lifeLostSound, gameOverSound, superShotSound, letsGoSound].forEach(sound => { sound.volume = 0.5; });
 
-    // --- Funkcja do odblokowania dźwięków na iOS/Chrome/Mobile ---
-    // MUSI być wywołana synchronicznie w zdarzeniu użytkownika!
+    // Funkcja do odblokowania dźwięków (w tym WebAudio) bezpośrednio w evencie kliknięcia
     function unlockAllSounds() {
         for (const sound of [lifeLostSound, gameOverSound, superShotSound, letsGoSound]) {
             try {
@@ -62,11 +61,21 @@ window.addEventListener('load', function() {
                 sound.volume = 0.5;
             } catch(e) {}
         }
+        // Odblokuj WebAudio (laser_shoot) przez cichą próbkę
+        if (audioContext && shootSoundBuffer) {
+            try {
+                const source = audioContext.createBufferSource();
+                source.buffer = shootSoundBuffer;
+                const gain = audioContext.createGain();
+                gain.gain.value = 0; // gra cicho
+                source.connect(gain).connect(audioContext.destination);
+                source.start(0);
+            } catch(e) {}
+        }
     }
 
     // Funkcja do odtwarzania dźwięku strzału (WebAudio)
     function playShootSound() {
-        if (!audioInitialized) return;
         const buffer = shootSoundBuffer; 
         if (!audioContext || !buffer || audioContext.state !== 'running') return; 
         const source = audioContext.createBufferSource(); 
@@ -169,26 +178,24 @@ window.addEventListener('load', function() {
         score = 0; lives = 3; missedEnemies = 0; gameOver = false; bullets = []; enemies = []; currentLevel = 1; enemyBaseSpeed = 100; enemySpeedMultiplier = 1.0; baseEnemyInterval = 1000; enemySpawnMultiplier = 1.0; enemySpawnTimer = 0; maxSuperShotCharges = 2; superShotCharges = maxSuperShotCharges; gameOverScreen.style.display = 'none'; resizeGame(); player = new Player(); input.x = canvas.width / 2; lastTime = 0; updateUI(); animate(0); 
     }
 
-    // --- ZMIANA: Czysta i prosta logika startowa ---
-
-    // Ta funkcja jest wywoływana TYLKO po kliknięciu "Start"
+    // --- START GRY --- (obsługa tylko w odpowiedzi na kliknięcie!)
     function initGame() {
         startScreen.removeEventListener('click', initGame);
         startScreen.removeEventListener('touchstart', initGame);
 
-        unlockAllSounds(); // SYNC, bez await!
-
-        // AudioContext/WebAudio unlock
+        // AudioContext – utwórz od razu
         if (!audioContext) {
             audioContext = new (window.AudioContext || window.webkitAudioContext)();
         }
-        audioContext.resume().then(() => {
-            audioInitialized = true;
-            // letsGoSound gra teraz, po unlockAllSounds
-            letsGoSound.pause();
-            letsGoSound.currentTime = 0;
-            letsGoSound.play().catch(() => {});
-        });
+        audioContext.resume();
+        audioInitialized = true;
+
+        unlockAllSounds();
+
+        // letsGoSound gra bezpośrednio po kliknięciu!
+        letsGoSound.pause();
+        letsGoSound.currentTime = 0;
+        letsGoSound.play().catch(() => {});
 
         startScreen.style.display = 'none';
         canvas.style.display = 'block';
