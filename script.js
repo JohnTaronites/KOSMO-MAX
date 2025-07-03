@@ -51,22 +51,20 @@ window.addEventListener('load', function() {
     [lifeLostSound, gameOverSound, superShotSound, letsGoSound].forEach(sound => { sound.volume = 0.5; });
 
     // --- Funkcja do odblokowania dźwięków na iOS/Chrome/Mobile ---
-    async function unlockAllSounds() {
+    // MUSI być wywołana synchronicznie w zdarzeniu użytkownika!
+    function unlockAllSounds() {
         for (const sound of [lifeLostSound, gameOverSound, superShotSound, letsGoSound]) {
             try {
                 sound.volume = 0;
-                // await aby nie blokować eventu
-                await sound.play();
+                sound.play();
                 sound.pause();
                 sound.currentTime = 0;
                 sound.volume = 0.5;
-            } catch(e) {
-                // Część dźwięków może być już unlocked albo play() odrzucone - ignorujemy
-            }
+            } catch(e) {}
         }
     }
 
-    // Funkcja do odtwarzania dźwięku strzału (szybka)
+    // Funkcja do odtwarzania dźwięku strzału (WebAudio)
     function playShootSound() {
         if (!audioInitialized) return;
         const buffer = shootSoundBuffer; 
@@ -178,25 +176,20 @@ window.addEventListener('load', function() {
         startScreen.removeEventListener('click', initGame);
         startScreen.removeEventListener('touchstart', initGame);
 
-        unlockAllSounds();
+        unlockAllSounds(); // SYNC, bez await!
 
-        // Krok 1: Stwórz AudioContext
+        // AudioContext/WebAudio unlock
         if (!audioContext) {
             audioContext = new (window.AudioContext || window.webkitAudioContext)();
         }
-
-        // Krok 2: Wznów kontekst i w odpowiedzi odtwórz dźwięk startowy
         audioContext.resume().then(() => {
-            console.log("AudioContext jest gotowy i działa. Stan:", audioContext.state);
             audioInitialized = true;
+            // letsGoSound gra teraz, po unlockAllSounds
             letsGoSound.pause();
             letsGoSound.currentTime = 0;
             letsGoSound.play().catch(() => {});
-        }).catch(e => {
-            console.error("Nie udało się wznowić AudioContext:", e);
         });
 
-        // Krok 3: Uruchom grę natychmiast
         startScreen.style.display = 'none';
         canvas.style.display = 'block';
         gameUiElements.style.display = 'block';
