@@ -1,6 +1,3 @@
-const GAME_WIDTH = 800;
-const GAME_HEIGHT = 600;
-
 const PLAYER_W = 50, PLAYER_H = 40;
 const ENEMY_W = 50, ENEMY_H = 45;
 const BULLET_W = 5, BULLET_H = 15;
@@ -16,7 +13,7 @@ class StartScene extends Phaser.Scene {
     constructor() { super({key: 'StartScene'}); }
     preload() {
         this.load.image('ship', 'assets/ship.png');
-        // Generujemy tekstury pocisków (białe i czerwone)
+        // Tekstury dla pocisków (białe i czerwone)
         this.textures.generate('bullet_white', { data: ['  1  ', '  1  ', '  1  ', '  1  ', '  1  ', '  1  ', '11111'], pixelWidth: 1, palette: { 1: '#fff' } });
         this.textures.generate('bullet_red',   { data: ['  2  ', '  2  ', '  2  ', '  2  ', '  2  ', '  2  ', '22222'], pixelWidth: 1, palette: { 2: '#f44' } });
 
@@ -28,12 +25,12 @@ class StartScene extends Phaser.Scene {
     }
     create() {
         this.cameras.main.setBackgroundColor('#141c2c');
-        this.add.text(GAME_WIDTH/2, 160, 'KOSMO-MAX', {font: '60px Segoe UI', fill:'#fff', stroke:'#000', strokeThickness:8})
+        this.add.text(this.scale.width/2, 160, 'KOSMO-MAX', {font: '60px Segoe UI', fill:'#fff', stroke:'#000', strokeThickness:8})
             .setOrigin(0.5);
-        this.add.text(GAME_WIDTH/2, 250, 'Sterowanie:\n- Kliknij/tapnij w oknie by strzelać\n- Przesuwaj palcem lub myszką, by sterować\n- Klawiatura: ← → oraz spacja\n\nCel: trafiaj wrogów, unikaj utraty żyć!', 
+        this.add.text(this.scale.width/2, 250, 'Sterowanie:\n- Kliknij/tapnij w oknie by strzelać\n- Przesuwaj palcem lub myszką, by sterować\n- Klawiatura: ← → oraz spacja\n\nCel: trafiaj wrogów, unikaj utraty żyć!', 
             { font: '24px Segoe UI', fill: '#fff', align:'center' }).setOrigin(0.5);
 
-        const btn = this.add.text(GAME_WIDTH/2, 420, 'START [KLIKNIJ/LUB TAPNIJ]', 
+        const btn = this.add.text(this.scale.width/2, 420, 'START [KLIKNIJ/LUB TAPNIJ]', 
             {font: '32px Segoe UI', fill:'#fff', backgroundColor:'#4CAF50', padding:{x:30, y:12}})
             .setOrigin(0.5)
             .setInteractive();
@@ -42,6 +39,11 @@ class StartScene extends Phaser.Scene {
             this.sound.unlock();
             this.scene.start('KosmoMaxScene');
         });
+
+        this.scale.on('resize', this.resize, this);
+    }
+    resize(gameSize) {
+        this.cameras.main.setViewport(0, 0, gameSize.width, gameSize.height);
     }
 }
 
@@ -51,7 +53,6 @@ class KosmoMaxScene extends Phaser.Scene {
     }
 
     create() {
-        // --- ZMIENNE STANU GRY ---
         this.score = 0;
         this.lives = 3;
         this.level = 1;
@@ -65,8 +66,11 @@ class KosmoMaxScene extends Phaser.Scene {
         this.maxSuperShotCharges = 2;
         this.gameOver = false;
 
+        // Dynamiczne rozmiary
+        let width = this.scale.width, height = this.scale.height;
+
         // --- PLAYER ---
-        this.player = this.physics.add.image(GAME_WIDTH/2, GAME_HEIGHT-80, 'ship')
+        this.player = this.physics.add.image(width/2, height-80, 'ship')
             .setDisplaySize(PLAYER_W, PLAYER_H)
             .setCollideWorldBounds(true)
             .setImmovable(true)
@@ -81,17 +85,18 @@ class KosmoMaxScene extends Phaser.Scene {
 
         // --- UI ---
         this.scoreText = this.add.text(15, 10, 'WYNIK: 0', { font: '24px Segoe UI', fill: '#fff', stroke: '#000', strokeThickness: 4 });
-        this.levelText = this.add.text(300, 10, 'POZIOM: 1', { font: '24px Segoe UI', fill: '#fff', stroke: '#000', strokeThickness: 4 });
-        this.livesText = this.add.text(650, 10, 'ŻYCIA: 3', { font: '24px Segoe UI', fill: '#fff', stroke: '#000', strokeThickness: 4 });
+        this.levelText = this.add.text(width/2, 10, 'POZIOM: 1', { font: '24px Segoe UI', fill: '#fff', stroke: '#000', strokeThickness: 4 })
+            .setOrigin(0.5, 0);
+        this.livesText = this.add.text(width-150, 10, 'ŻYCIA: 3', { font: '24px Segoe UI', fill: '#fff', stroke: '#000', strokeThickness: 4 });
 
-        this.superBtn = this.add.text(GAME_WIDTH/2, GAME_HEIGHT-40, 'SUPER STRZAŁ (2)', { font: '28px Segoe UI', fill: '#FFF', backgroundColor: '#ff4500', padding: { x: 20, y: 6 } })
+        this.superBtn = this.add.text(width/2, height-40, 'SUPER STRZAŁ (2)', { font: '28px Segoe UI', fill: '#FFF', backgroundColor: '#ff4500', padding: { x: 20, y: 6 } })
             .setOrigin(0.5)
             .setInteractive()
             .on('pointerdown', () => this.shootSuper());
 
         // --- GAME OVER SCREEN ---
-        this.gameOverScreen = this.add.container(GAME_WIDTH/2, GAME_HEIGHT/2).setVisible(false);
-        const goBg = this.add.rectangle(0, 0, GAME_WIDTH, GAME_HEIGHT, 0x000000, 0.8).setOrigin(0.5);
+        this.gameOverScreen = this.add.container(width/2, height/2).setVisible(false);
+        const goBg = this.add.rectangle(0, 0, width, height, 0x000000, 0.8).setOrigin(0.5);
         const goTitle = this.add.text(0, -60, 'GAME OVER', { font: '60px Segoe UI', fill: '#ff4444', stroke: '#000', strokeThickness: 8 }).setOrigin(0.5);
         this.finalScoreText = this.add.text(0, 20, 'Twój wynik: 0', { font: '32px Segoe UI', fill: '#fff' }).setOrigin(0.5);
         this.newGameBtn = this.add.text(0, 100, 'NOWA GRA', { font: '32px Segoe UI', fill: '#fff', backgroundColor:'#4CAF50', padding:{x:24,y:12}})
@@ -107,15 +112,31 @@ class KosmoMaxScene extends Phaser.Scene {
         this.letsgoSound = this.sound.add('letsgo', { volume: 0.5 });
         this.ohnooSound = this.sound.add('ohnoo', { volume: 0.5 });
 
-        // --- Sterowanie ---
+        // --- Sterowanie klawiaturą ---
         this.cursors = this.input.keyboard.createCursorKeys();
         this.input.keyboard.on('keydown-SPACE', () => { if (!this.gameOver) this.shootTriple(); });
 
-        this.input.on('pointermove', pointer => {
-            this.player.x = Phaser.Math.Clamp(pointer.x, PLAYER_W/2, GAME_WIDTH-PLAYER_W/2);
-        });
+        // --- Sterowanie dotyk/myszka ---
+        this.isDragging = false;
         this.input.on('pointerdown', pointer => {
-            if (!this.gameOver) this.shootTriple();
+            this.isDragging = true;
+            this.player.x = Phaser.Math.Clamp(pointer.x, PLAYER_W/2, this.scale.width - PLAYER_W/2);
+        });
+        this.input.on('pointerup', () => {
+            this.isDragging = false;
+        });
+        this.input.on('pointermove', pointer => {
+            if (this.isDragging) {
+                this.player.x = Phaser.Math.Clamp(pointer.x, PLAYER_W/2, this.scale.width - PLAYER_W/2);
+            }
+        });
+
+        // --- Strzał dotyk/click ---
+        this.input.on('gameobjectdown', (pointer, obj) => {
+            // superbtn obsługuje się sam, tu nie trzeba
+        });
+        this.input.on('pointerup', pointer => {
+            if (!this.gameOver && pointer.y < this.scale.height - 80) this.shootTriple();
         });
 
         this.letsgoSound.play();
@@ -125,10 +146,15 @@ class KosmoMaxScene extends Phaser.Scene {
 
         // --- Start ---
         this.time.addEvent({ delay: 800, callback: ()=>this.spawnEnemy(), loop: false });
+
+        this.scale.on('resize', this.resize, this);
     }
 
     update(time, delta) {
         if (this.gameOver) return;
+
+        // Dynamiczne rozmiary
+        let width = this.scale.width, height = this.scale.height;
 
         // Sterowanie klawiaturą
         if (this.cursors.left.isDown) this.player.setVelocityX(-PLAYER_SPEED);
@@ -146,7 +172,7 @@ class KosmoMaxScene extends Phaser.Scene {
         // ENEMIES MOVE & OUT OF SCREEN
         this.enemies.getChildren().forEach(enemy => {
             enemy.y += enemy.speed * (delta/1000);
-            if (enemy.y > GAME_HEIGHT + ENEMY_H) {
+            if (enemy.y > height + ENEMY_H) {
                 enemy.destroy();
                 this.missedEnemies++;
                 if (this.missedEnemies >= 3) {
@@ -161,10 +187,17 @@ class KosmoMaxScene extends Phaser.Scene {
             }
         });
 
-        // BULLETS OUT -- NIE przesuwamy bulletów ręcznie, fizyka Phaser robi to za nas!
+        // BULLETS OUT
         this.bullets.getChildren().forEach(bullet => {
-            if (bullet.y < -BULLET_H || bullet.y > GAME_HEIGHT + BULLET_H) bullet.destroy();
+            if (bullet.y < -BULLET_H || bullet.y > height + BULLET_H) bullet.destroy();
         });
+
+        // UI pozycje
+        this.scoreText.setPosition(15, 10);
+        this.levelText.setPosition(this.scale.width/2, 10);
+        this.livesText.setPosition(this.scale.width-150, 10);
+        this.superBtn.setPosition(this.scale.width/2, this.scale.height-40);
+        this.gameOverScreen.setPosition(this.scale.width/2, this.scale.height/2);
     }
 
     // --- LOGIKA GRY ---
@@ -199,7 +232,6 @@ class KosmoMaxScene extends Phaser.Scene {
 
     spawnBullet(x, y, angle=0, color='white', speed=BULLET_SPEED) {
         const key = color === 'red' ? 'bullet_red' : 'bullet_white';
-        // Użyj create z grupy fizycznej!
         const bullet = this.bullets.create(x, y, key)
             .setDisplaySize(BULLET_W, BULLET_H)
             .setDepth(2);
@@ -211,7 +243,7 @@ class KosmoMaxScene extends Phaser.Scene {
     }
 
     spawnEnemy() {
-        const x = Phaser.Math.Between(ENEMY_W/2, GAME_WIDTH-ENEMY_W/2);
+        const x = Phaser.Math.Between(ENEMY_W/2, this.scale.width-ENEMY_W/2);
         const enemy = this.enemies.create(x, -ENEMY_H/2, 'ship')
             .setDisplaySize(ENEMY_W, ENEMY_H);
         enemy.speed = (Phaser.Math.Between(0,100) + this.enemyBaseSpeed) * this.enemySpeedMultiplier;
@@ -247,8 +279,7 @@ class KosmoMaxScene extends Phaser.Scene {
         this.superShotCharges = this.maxSuperShotCharges;
         this.updateUI();
 
-        // Efekt LEVEL UP
-        const msg = this.add.text(GAME_WIDTH/2, GAME_HEIGHT/2, `LEVEL ${level}`, { font: '80px Segoe UI', fill: '#6c6cff', stroke: '#000', strokeThickness: 10 })
+        const msg = this.add.text(this.scale.width/2, this.scale.height/2, `LEVEL ${level}`, { font: '80px Segoe UI', fill: '#6c6cff', stroke: '#000', strokeThickness: 10 })
             .setOrigin(0.5);
         this.tweens.add({ targets: msg, alpha: 0, duration: 1500, onComplete: ()=>msg.destroy() });
     }
@@ -276,23 +307,29 @@ class KosmoMaxScene extends Phaser.Scene {
 
         this.bullets.clear(true, true);
         this.enemies.clear(true, true);
-        this.player.x = GAME_WIDTH/2;
+        this.player.x = this.scale.width/2;
 
         this.updateUI();
         this.gameOverScreen.setVisible(false);
 
         this.letsgoSound.play();
     }
+
+    resize(gameSize) {
+        // UI i elementy automatycznie się dostosują w update()
+    }
 }
 
 const config = {
     type: Phaser.AUTO,
-    width: GAME_WIDTH,
-    height: GAME_HEIGHT,
     backgroundColor: '#141c2c',
+    parent: 'phaser-container',
+    scale: {
+        mode: Phaser.Scale.RESIZE,
+        autoCenter: Phaser.Scale.CENTER_BOTH
+    },
     physics: { default: 'arcade' },
-    scene: [StartScene, KosmoMaxScene],
-    scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH }
+    scene: [StartScene, KosmoMaxScene]
 };
 
 const game = new Phaser.Game(config);
