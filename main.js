@@ -1,4 +1,5 @@
-// KOSMO-MAX w Phaser 3 (wersja uproszczona, z zachowaniem głównych mechanik)
+// KOSMO-MAX w Phaser 3 (wersja demo, pełna logika gry przeniesiona z vanilla JS)
+// Autor: JohnTaronites + Copilot, 2024
 
 const GAME_WIDTH = 800;
 const GAME_HEIGHT = 600;
@@ -9,25 +10,41 @@ const ENEMY_SPEED_START = 100;
 const ENEMY_SPEED_MULT = 1.2;
 const BASE_ENEMY_INTERVAL = 1000;
 const ENEMY_SPAWN_MULT = 1.2;
-
 const SUPER_SHOT_COUNT = 30;
 
-class KosmoMaxScene extends Phaser.Scene {
-    constructor() {
-        super({ key: 'KosmoMaxScene' });
-    }
-
+class StartScene extends Phaser.Scene {
+    constructor() { super({key: 'StartScene'}); }
     preload() {
-        // Obrazki
         this.load.image('ship', 'assets/ship.png');
         this.load.image('enemy', 'assets/enemy.png');
-
-        // Dźwięki
         this.load.audio('shoot', 'assets/laser_shoot.mp3');
         this.load.audio('craaash', 'assets/craaash.mp3');
         this.load.audio('bigbomb', 'assets/bigbomb.mp3');
         this.load.audio('letsgo', 'assets/letsgo.mp3');
         this.load.audio('ohnoo', 'assets/Ohnoo.mp3');
+    }
+    create() {
+        this.cameras.main.setBackgroundColor('#141c2c');
+        this.add.text(GAME_WIDTH/2, 160, 'KOSMO-MAX', {font: '60px Segoe UI', fill:'#fff', stroke:'#000', strokeThickness:8})
+            .setOrigin(0.5);
+        this.add.text(GAME_WIDTH/2, 250, 'Sterowanie:\n- Klikaj/tapnij w oknie by strzelać\n- Przesuwaj palcem lub myszką, by sterować\n- Klawiatura: ← → oraz spacja\n\nCel: trafiaj wrogów, unikaj utraty żyć!', 
+            { font: '24px Segoe UI', fill: '#fff', align:'center' }).setOrigin(0.5);
+
+        const btn = this.add.text(GAME_WIDTH/2, 420, 'START [KLIKNIJ/LUB TAPNIJ]', 
+            {font: '32px Segoe UI', fill:'#fff', backgroundColor:'#4CAF50', padding:{x:30, y:12}})
+            .setOrigin(0.5)
+            .setInteractive();
+
+        btn.on('pointerdown', () => {
+            this.sound.unlock(); // Odblokuj dźwięki na mobilu!
+            this.scene.start('KosmoMaxScene');
+        });
+    }
+}
+
+class KosmoMaxScene extends Phaser.Scene {
+    constructor() {
+        super({ key: 'KosmoMaxScene' });
     }
 
     create() {
@@ -87,6 +104,8 @@ class KosmoMaxScene extends Phaser.Scene {
 
         // --- Sterowanie ---
         this.cursors = this.input.keyboard.createCursorKeys();
+        this.input.keyboard.on('keydown-SPACE', () => { if (!this.gameOver) this.shootTriple(); });
+
         this.input.on('pointermove', pointer => {
             this.player.x = Phaser.Math.Clamp(pointer.x, this.player.width/2, GAME_WIDTH-this.player.width/2);
         });
@@ -94,7 +113,7 @@ class KosmoMaxScene extends Phaser.Scene {
             if (!this.gameOver) this.shootTriple();
         });
 
-        // --- Start gry (unlock dźwięków na mobile) ---
+        // --- Start gry (unlock dźwięków na mobilu) ---
         this.letsgoSound.play();
 
         // --- Kolizje ---
@@ -269,7 +288,7 @@ const config = {
     height: GAME_HEIGHT,
     backgroundColor: '#141c2c',
     physics: { default: 'arcade' },
-    scene: [KosmoMaxScene],
+    scene: [StartScene, KosmoMaxScene],
     scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH }
 };
 
