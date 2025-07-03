@@ -130,14 +130,18 @@ window.addEventListener('load', function() {
         updateUI(); 
         checkLevelUp(); 
         if (gameOver) { 
-            if (gameOverScreen.style.display !== 'flex') { 
-                gameOverSound.currentTime = 0; gameOverSound.play();
-                setTimeout(() => { 
-                    gameOverScreen.style.display = 'flex'; 
-                    finalScoreEl.innerText = score; 
-                }, 500); 
-            } 
-        } else { 
+    if (gameOverScreen.style.display !== 'flex') { 
+        gameOverSound.pause();
+        gameOverSound.currentTime = 0; 
+        gameOverSound.play().catch(e => {
+            console.warn("Nie można odtworzyć dźwięku Game Over:", e);
+        });
+        setTimeout(() => { 
+            gameOverScreen.style.display = 'flex'; 
+            finalScoreEl.innerText = score; 
+        }, 500); 
+    } 
+} else { 
             animationFrameId = requestAnimationFrame(animate); 
         } 
     }
