@@ -1,11 +1,12 @@
-// Wersja 5.1
+// Wersja 8.1 (Cicha)
 window.addEventListener('load', function() {
     // --- GŁÓWNE ZMIENNE I KONFIGURACJA ---
-    const version = '5.1-cicha';
+    const version = '8.1';
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
     const startScreen = document.getElementById('startScreen');
-    const startScreenText = startScreen.querySelector('p');
+    const startButton = document.getElementById('startButton');
+    const gameContainer = document.getElementById('gameContainer');
     const versionDisplay = document.getElementById('version-display');
     versionDisplay.innerText = `v${version}`;
 
@@ -32,12 +33,11 @@ window.addEventListener('load', function() {
     newGameBtn.innerText = 'NOWA GRA'; newGameBtn.style.marginTop = '30px'; newGameBtn.style.padding = '15px 30px'; newGameBtn.style.fontSize = '1.2em'; newGameBtn.style.cursor = 'pointer'; newGameBtn.style.backgroundColor = '#4CAF50'; newGameBtn.style.color = 'white'; newGameBtn.style.border = 'none'; newGameBtn.style.borderRadius = '5px';
     newGameBtn.addEventListener('click', resetGame);
     gameOverScreen.appendChild(gameOverTitle); gameOverScreen.appendChild(finalScoreText); gameOverScreen.appendChild(newGameBtn);
-    gameUiElements.appendChild(uiContainer);
-    gameUiElements.appendChild(superShotBtn);
-    document.body.appendChild(gameUiElements);
-    document.body.appendChild(gameOverScreen);
+    gameContainer.appendChild(uiContainer);
+    gameContainer.appendChild(superShotBtn);
+    gameContainer.appendChild(gameOverScreen);
 
-    // --- ZASOBY GRY (tylko obrazek) ---
+    // --- ZASOBY GRY ---
     const shipImage = new Image();
     
     // --- ZMIENNE STANU GRY ---
@@ -88,32 +88,37 @@ window.addEventListener('load', function() {
         animate(0);
     }
 
-    // --- UPROSZCZONA LOGIKA STARTOWA ---
+    // --- LOGIKA STARTOWA ---
     function initGame() {
-        startScreen.removeEventListener('click', initGame);
-        startScreen.removeEventListener('touchstart', initGame);
+        startButton.removeEventListener('click', initGame);
+        
         startScreen.style.display = 'none';
-        canvas.style.display = 'block';
-        gameUiElements.style.display = 'block';
+        gameContainer.style.display = 'block';
         resetGame();
     }
     
     function loadInitialAssets() {
-        startScreen.querySelector('p').innerText = 'ŁADOWANIE...';
         startButton.disabled = true;
+        startButton.innerText = 'ŁADOWANIE...';
 
         shipImage.onload = () => {
-            startScreen.querySelector('p').innerText = 'Kliknij lub dotknij ekranu, aby rozpocząć!';
-            startButton.innerText = 'START';
             startButton.disabled = false;
+            startButton.innerText = 'START';
+            // ZMIANA: Przypisanie listenera jest teraz TUTAJ
+            startButton.addEventListener('click', initGame);
         };
         shipImage.onerror = () => {
-            startScreen.querySelector('p').innerText = 'Błąd ładowania grafiki. Odśwież stronę.';
+            startButton.innerText = 'BŁĄD';
+            alert('Nie udało się załadować grafiki. Odśwież stronę.');
         };
         shipImage.src = 'assets/ship.png';
+
+        // Zabezpieczenie przed wyścigiem warunków (jeśli obrazek jest w cache)
+        if (shipImage.complete) {
+            shipImage.onload();
+        }
     }
 
     // --- PUNKT WEJŚCIA APLIKACJI ---
     loadInitialAssets();
-    startButton.addEventListener('click', initGame);
 });
